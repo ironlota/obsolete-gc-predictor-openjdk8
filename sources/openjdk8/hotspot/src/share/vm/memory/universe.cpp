@@ -132,8 +132,8 @@ oop Universe::_allocation_context_notification_obj    = NULL;
 Method* Universe::_throw_illegal_access_error         = NULL;
 Array<int>* Universe::_the_empty_int_array            = NULL;
 Array<u2>* Universe::_the_empty_short_array           = NULL;
-Array<Klass*>* Universe::_the_empty_klass_array     = NULL;
-Array<Method*>* Universe::_the_empty_method_array   = NULL;
+Array<Klass*>* Universe::_the_empty_klass_array       = NULL;
+Array<Method*>* Universe::_the_empty_method_array     = NULL;
 
 // These variables are guarded by FullGCALot_lock.
 debug_only(objArrayOop Universe::_fullgc_alot_dummy_array = NULL;)
@@ -154,6 +154,10 @@ CollectedHeap*  Universe::_collectedHeap = NULL;
 NarrowPtrStruct Universe::_narrow_oop = { NULL, 0, true };
 NarrowPtrStruct Universe::_narrow_klass = { NULL, 0, true };
 address Universe::_narrow_ptrs_base;
+
+// @rayandrew
+// initialize counter of live objects
+size_t          Universe::_count_live_objects = 0;
 
 void Universe::basic_type_classes_do(void f(Klass*)) {
   f(boolArrayKlassObj());

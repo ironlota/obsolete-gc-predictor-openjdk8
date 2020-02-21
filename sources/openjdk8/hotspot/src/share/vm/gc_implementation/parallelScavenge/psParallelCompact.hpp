@@ -31,6 +31,7 @@
 #include "gc_implementation/shared/collectorCounters.hpp"
 #include "gc_implementation/shared/markSweep.hpp"
 #include "gc_implementation/shared/mutableSpace.hpp"
+#include "memory/universe.hpp"
 #include "memory/sharedHeap.hpp"
 #include "oops/oop.hpp"
 
@@ -1360,6 +1361,9 @@ inline void PSParallelCompact::mark_and_push(ParCompactionManager* cm, T* p) {
     oop obj = oopDesc::decode_heap_oop_not_null(heap_oop);
     if (mark_bitmap()->is_unmarked(obj) && mark_obj(obj)) {
       cm->push(obj);
+    }
+    if (is_marked(obj)) {
+      Universe::inc_count_live_objects();
     }
   }
 }

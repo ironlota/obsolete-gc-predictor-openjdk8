@@ -38,6 +38,7 @@
 #include "gc_implementation/shared/gcHeapSummary.hpp"
 #include "gc_implementation/shared/gcWhen.hpp"
 #include "memory/gcLocker.inline.hpp"
+#include "memory/universe.hpp"
 #include "oops/oop.inline.hpp"
 #include "runtime/handles.inline.hpp"
 #include "runtime/java.hpp"
@@ -438,7 +439,8 @@ void ParallelScavengeHeap::do_full_collection(bool clear_all_soft_refs) {
 // collection methods. This method decides where to attempt allocations,
 // and when to attempt collections, but no collection specific policy.
 
-// @rayandrews : modify this to check the time allocation
+// @rayandrew
+// modify this to check the time allocation
 HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   assert(SafepointSynchronize::is_at_safepoint(), "should be at safepoint");
   assert(Thread::current() == (Thread*)VMThread::vm_thread(), "should be in vm thread");
@@ -462,12 +464,13 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // PSScavenge is running and will try to allocate in the
   // Young Gen
   {
-    TraceTime t("[Phase 1][Scavenge_AllocateYoungGen]", NULL, true, true, gclog_or_tty);
+    TraceTime t("[UCARE][Phase 1][Scavenge_AllocateYoungGen]", NULL, true, true, true, gclog_or_tty);
     invoked_full_gc = PSScavenge::invoke();
     result = young_gen()->allocate(size);
   }
 
-  gclog_or_tty->print_cr("Allocation failed : [ invoked_full_gc: %d, result==NULL: %d ]", invoked_full_gc, result == NULL);
+  gclog_or_tty->stamp(PrintGCTimeStamps);
+  gclog_or_tty->print_cr("[UCARE] Allocation failed : [ invoked_full_gc: %d, result==NULL: %d ]", invoked_full_gc, result == NULL);
 
   // Second level allocation failure.
   //   Mark sweep and allocate in young generation.
@@ -478,7 +481,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // Has preq : does not invoke full gc
   // Allocate in the Young Gen
   {
-    TraceTime t("[Phase 2][MarkSweepWithoutCompaction_AllocateYoungGen]", NULL, true, true, gclog_or_tty);
+    TraceTime t("[UCARE][Phase 2][MarkSweepWithoutCompaction_AllocateYoungGen]", NULL, true, true, true, gclog_or_tty);
     
     if (result == NULL && !invoked_full_gc) {
       do_full_collection(false);
@@ -496,7 +499,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // and after the full gc the allocation still
   // cannot be satisfied from the young gen
   {
-    TraceTime t("[Phase 3][DeathMarchCheck]", NULL, true, true, gclog_or_tty);
+    TraceTime t("[UCARE][Phase 3][DeathMarchCheck]", NULL, true, true, true, gclog_or_tty);
     death_march_check(result, size);
   }
 
@@ -508,7 +511,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // Scope 4 == Phase 4 of failed_mem_allocate
   // Allocate in Old Gen
   {
-    TraceTime t("[Phase 4][AllocateOldGen]", NULL, true, true, gclog_or_tty);
+    TraceTime t("[UCARE][Phase 4][AllocateOldGen]", NULL, true, true, true, gclog_or_tty);
     if (result == NULL) {
       result = old_gen()->allocate(size);
     }
@@ -523,7 +526,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // This is the condition called "FULL GC"
   // Will try to allocate in the Young Gen first
   {
-    TraceTime t("[Phase 5][MarkSweepWithCompaction_AllocateYoungGen]", NULL, true, true, gclog_or_tty);
+    TraceTime t("[UCARE][Phase 5][MarkSweepWithCompaction_AllocateYoungGen]", NULL, true, true, true, gclog_or_tty);
     if (result == NULL) {
       do_full_collection(true);
       result = young_gen()->allocate(size);
@@ -539,11 +542,17 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // Will try to allocate in Old Gen
   // after failed to allocate in Young Gen
   {
-    TraceTime t("[Phase 6][AllocateOldGen]", NULL, true, true, gclog_or_tty);
+    TraceTime t("[UCARE][Phase 6][AllocateOldGen]", NULL, true, true, true, gclog_or_tty);
     if (result == NULL) {
       result = old_gen()->allocate(size);
     }
   }
+
+
+  // @rayandrew
+  // add this to log live objects counter
+  gclog_or_tty->stamp(PrintGCTimeStamps);
+  gclog_or_tty->print_cr("[UCARE] After GC live objects count : %zu", Universe::get_count_live_objects());
 
   return result;
 }

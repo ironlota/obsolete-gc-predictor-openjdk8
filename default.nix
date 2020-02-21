@@ -7,7 +7,8 @@ let
 in
 stdenv.mkDerivation rec {
   name = pname;
-  src  = builtins.filterSource (p: t: lib.cleanSourceFilter p t && baseNameOf p != "OBF_DROP_DIR" && baseNameOf p != "build") ./.;
+  src = if lib.inNixShell then null else ./.;
+  # src  = builtins.filterSource (p: t: lib.cleanSourceFilter p t && baseNameOf p != "OBF_DROP_DIR" && baseNameOf p != "build") ./.;
 
   nativeBuildInputs = [
     stdenv

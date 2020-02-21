@@ -365,6 +365,11 @@ stringStream::~stringStream() {}
 xmlStream*   xtty;
 outputStream* tty;
 outputStream* gclog_or_tty;
+
+// @rayandrew
+// add this to create new logger
+outputStream* ucarelog_or_tty;
+
 CDS_ONLY(fileStream* classlist_file;) // Only dump the classes that can be stored into the CDS archive
 extern Mutex* tty_lock;
 
@@ -1202,6 +1207,20 @@ void ostream_init_log() {
     gclog_or_tty = gclog;
   }
 
+  // @rayandrew
+  // add this to create new ucare logger
+  ucarelog_or_tty = tty; // default to tty
+  if (Arguments::ucare_log_filename() != NULL) {
+    fileStream * ucarelog  = new(ResourceObj::C_HEAP, mtInternal)
+                             gcLogFileStream(Arguments::ucare_log_filename());
+    if (ucarelog->is_open()) {
+      // now we update the time stamp of the GC log to be synced up
+      // with tty.
+      ucarelog->time_stamp().update_to(tty->time_stamp().ticks());
+    }
+    gclog_or_tty = ucarelog;
+  }
+
 #if INCLUDE_CDS
   // For -XX:DumpLoadedClassList=<file> option
   if (DumpLoadedClassList != NULL) {
@@ -1232,6 +1251,13 @@ void ostream_exit() {
   if (gclog_or_tty != tty) {
       delete gclog_or_tty;
   }
+
+  // @rayandrew
+  // add this to delete ucare logger ptr
+  if (ucarelog_or_tty != tty) {
+      delete ucarelog_or_tty;
+  }
+  
   {
       // we temporaly disable PrintMallocFree here
       // as otherwise it'll lead to using of almost deleted
@@ -1248,6 +1274,7 @@ void ostream_exit() {
   tty = NULL;
   xtty = NULL;
   gclog_or_tty = NULL;
+  ucarelog_or_tty = NULL;
   defaultStream::instance = NULL;
 }
 
@@ -1255,6 +1282,11 @@ void ostream_exit() {
 void ostream_abort() {
   // Here we can't delete gclog_or_tty and tty, just flush their output
   if (gclog_or_tty) gclog_or_tty->flush();
+
+  // @rayandrew
+  // add this to flush ucare logger
+  if (ucarelog_or_tty) ucarelog_or_tty->flush();
+  
   if (tty) tty->flush();
 
   if (defaultStream::instance != NULL) {
