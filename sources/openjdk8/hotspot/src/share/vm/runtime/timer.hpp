@@ -80,8 +80,10 @@ class TimeStamp VALUE_OBJ_CLASS_SPEC {
 
 class TraceTime: public StackObj {
  private:
+  const char*   _title;
   bool          _active;    // do timing
   bool          _verbose;   // report every timing
+  bool          _print_at_the_end;
   elapsedTimer  _t;         // timer
   elapsedTimer* _accum;     // accumulator
   outputStream* _logfile;   // output is printed to this stream
@@ -93,6 +95,7 @@ class TraceTime: public StackObj {
             elapsedTimer* accumulator,
             bool doit = true,
             bool verbose = false,
+            bool print_at_the_end = false,
             outputStream *logfile = NULL);
   ~TraceTime();
 

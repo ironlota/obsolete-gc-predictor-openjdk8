@@ -114,9 +114,11 @@ jlong TimeStamp::ticks_since_update() const {
 }
 
 TraceTime::TraceTime(const char* title,
-                     bool doit) {
+                     bool doit)
+  : _title(title) {
   _active   = doit;
   _verbose  = true;
+  _print_at_the_end = false;
   
   if (_active) {
     _logfile  = tty;
@@ -132,16 +134,19 @@ TraceTime::TraceTime(const char* title,
                      elapsedTimer* accumulator,
                      bool doit,
                      bool verbose,
-                     outputStream* logfile) {
+                     bool print_at_the_end,
+                     outputStream* logfile)
+  : _title(title) {
   _active = doit;
   _verbose = verbose;
+  _print_at_the_end = print_at_the_end;
   if (_active) {
     if (logfile != NULL) {
       _logfile = logfile;
     } else {
       _logfile = tty;
     }
-    if (_verbose) {
+    if (_verbose && !_print_at_the_end) {
       _logfile->stamp(PrintGCTimeStamps);
       _logfile->print("[%s", title);
       _logfile->flush();
@@ -156,8 +161,14 @@ TraceTime::~TraceTime() {
     _t.stop();
     if (_accum!=NULL) _accum->add(_t);
     if (_verbose) {
-      _logfile->print_cr(", %3.7f secs]", _t.seconds());
-      _logfile->flush();
+      if (_print_at_the_end) {
+        _logfile->stamp(PrintGCTimeStamps);
+        _logfile->print_cr("[%s, %3.7f secs]", _title, _t.seconds());
+        _logfile->flush();
+      } else {
+        _logfile->print_cr(", %3.7f secs]", _t.seconds());
+        _logfile->flush();
+      }
     }
   }
 }

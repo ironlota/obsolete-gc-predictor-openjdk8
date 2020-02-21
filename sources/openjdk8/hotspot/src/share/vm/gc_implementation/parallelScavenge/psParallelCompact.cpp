@@ -59,6 +59,10 @@
 #include "utilities/events.hpp"
 #include "utilities/stack.inline.hpp"
 
+// @rayandrew
+// add this to get the live objects
+#include "memory/universe.hpp"
+
 #include <math.h>
 
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
@@ -2365,6 +2369,10 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
   ClassLoaderDataGraph::clear_claimed_marks();
 
   {
+    // @rayandrew
+    // reset live objects counter
+    Universe::reset_count_live_objects();
+    
     GCTraceTime tm_m("par mark", print_phases(), true, &_gc_timer, _gc_tracer.gc_id());
 
     ParallelScavengeHeap::ParStrongRootsScope psrs;
@@ -2390,6 +2398,11 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
     }
 
     gc_task_manager()->execute_and_wait(q);
+
+    // @rayandrew
+    // add this to log live objects counter
+    gclog_or_tty->stamp(PrintGCTimeStamps);
+    gclog_or_tty->print_cr("[UCARE] After PSParallelCompact::invoke live objects count : %zu", Universe::get_count_live_objects());
   }
 
   // Process reference objects found during marking
