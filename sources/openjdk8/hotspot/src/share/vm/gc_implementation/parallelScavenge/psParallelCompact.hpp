@@ -1362,9 +1362,6 @@ inline void PSParallelCompact::mark_and_push(ParCompactionManager* cm, T* p) {
     if (mark_bitmap()->is_unmarked(obj) && mark_obj(obj)) {
       cm->push(obj);
     }
-    if (mark_bitmap()->is_marked(obj)) {
-      Universe::inc_count_live_objects();
-    }
   }
 }
 

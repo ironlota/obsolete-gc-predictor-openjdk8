@@ -62,7 +62,6 @@
 // @rayandrew
 // add this to get the live objects
 #include "memory/universe.hpp"
-#include "utilities/ucare.hpp"
 
 #include <math.h>
 
@@ -2372,7 +2371,7 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
   {
     // @rayandrew
     // reset live objects counter
-    // Universe::reset_count_live_objects();
+    Universe::reset_count_live_objects();
     
     GCTraceTime tm_m("par mark", print_phases(), true, &_gc_timer, _gc_tracer.gc_id());
 
@@ -2401,28 +2400,11 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
     gc_task_manager()->execute_and_wait(q);
 
     // @rayandrew
-    // after this we need to count live objects
-    // using the ObjectClosure
-    // see more info at gcTrace.hpp
-    // stubs
-    
-    // @rayandrew
     // add this to log live objects counter
-    // gclog_or_tty->stamp(PrintGCTimeStamps);
-    // gclog_or_tty->print_cr("[UCARE] After PSParallelCompact::invoke live objects count : %zu", Universe::get_count_live_objects());
+    gclog_or_tty->stamp(PrintGCTimeStamps);
+    gclog_or_tty->print_cr("[UCARE] After PSParallelCompact::invoke live objects count : %zu", Universe::get_count_live_objects());
   }
 
-  // @rayandrew
-  // add ucare objects counter
-  Ucare::count_objects(&_is_alive_closure, _gc_tracer.gc_id(), "PSParallelCompact -- marking_phase");
-
-  // @rayandrew
-  // below code is "references" class implementation in Java
-  // one of the example is
-  // - SoftReference (https://docs.oracle.com/javase/7/docs/api/java/lang/ref/SoftReference.html)
-  // We can see other type in the file :
-  // hotspot/src/share/vm/memory/referenceType.hpp
-  
   // Process reference objects found during marking
   {
     GCTraceTime tm_r("reference processing", print_phases(), true, &_gc_timer, _gc_tracer.gc_id());

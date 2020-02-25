@@ -297,3 +297,11 @@ TSWLatexianTemp*
 
 # Makeindex log files
 *.lpz
+
+# My paint
+*.ora
+*.ora~
+
+# Emacs
+*.desktop
+*.desktop.lock

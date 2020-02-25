@@ -26,7 +26,6 @@
 #define SHARE_VM_UTILITIES_PAIR_HPP
 
 #include "memory/allocation.hpp"
-#include "utilities/globalDefinitions.hpp"
 #include "utilities/top.hpp"
 
 template<typename T, typename V,  typename ALLOC_BASE = ResourceObj>
@@ -39,16 +38,5 @@ class Pair : public ALLOC_BASE {
   Pair(T t, V v) : first(t), second(v) {}
 };
 
-// @rayandrew
-// implement simple pair
-template<typename T, typename V>
-class SPair VALUE_OBJ_CLASS_SPEC {
- public:
-  T first;
-  V second;
-
-  SPair() {}
-  SPair(T t, V v) : first(t), second(v) {}  
-};
 
 #endif // SHARE_VM_UTILITIES_PAIR_HPP
