@@ -251,6 +251,11 @@
 # include "utilities/sizes.hpp"
 # include "utilities/taskqueue.hpp"
 # include "utilities/top.hpp"
+
+// @rayandrew
+// include UCARE utilities
+# include "utilities/ucare.hpp"
+
 # include "utilities/utf8.hpp"
 # include "utilities/workgroup.hpp"
 # include "utilities/yieldingWorkgroup.hpp"

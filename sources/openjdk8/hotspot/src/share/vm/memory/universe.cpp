@@ -82,6 +82,10 @@
 #include "gc_implementation/parallelScavenge/parallelScavengeHeap.hpp"
 #endif // INCLUDE_ALL_GCS
 
+// @rayandrew
+// add ucare class
+#include "utilities/ucare.hpp"
+
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
 
 // Known objects
@@ -158,6 +162,8 @@ address Universe::_narrow_ptrs_base;
 // @rayandrew
 // initialize counter of live objects
 size_t          Universe::_count_live_objects = 0;
+// initialize counter of dead objects
+size_t          Universe::_count_dead_objects = 0;
 
 void Universe::basic_type_classes_do(void f(Klass*)) {
   f(boolArrayKlassObj());
@@ -652,6 +658,13 @@ jint universe_init() {
   JavaClasses::compute_hard_coded_offsets();
 
   jint status = Universe::initialize_heap();
+  if (status != JNI_OK) {
+    return status;
+  }
+
+  // @rayandrew
+  // initialize ucare
+  status = Ucare::initialize();
   if (status != JNI_OK) {
     return status;
   }

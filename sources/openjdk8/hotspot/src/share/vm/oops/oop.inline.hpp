@@ -578,6 +578,32 @@ inline bool oopDesc::has_bias_pattern() const {
 
 
 // used only for asserts
+inline bool oopDesc::check_oop(HeapWord* p, bool ignore_mark_word) {
+  ucarelog_or_tty->print_cr("test 1");
+  oop obj = oop(p);
+  ucarelog_or_tty->print_cr("test 2");
+  if (!check_obj_alignment(obj)) return false;
+  ucarelog_or_tty->print_cr("test 3");
+  if (!Universe::heap()->is_in_reserved(obj)) return false;
+  ucarelog_or_tty->print_cr("test 4");
+  // obj is aligned and accessible in heap
+  if (Universe::heap()->is_in_reserved(obj->klass_or_null())) return false;
+  ucarelog_or_tty->print_cr("test 5");
+  // Header verification: the mark is typically non-NULL. If we're
+  // at a safepoint, it must not be null.
+  // Outside of a safepoint, the header could be changing (for example,
+  // another thread could be inflating a lock on this object).
+  if (ignore_mark_word) {
+    return true;
+  }
+  ucarelog_or_tty->print_cr("test 6");
+  if (obj->mark() != NULL) {
+    return true;
+  }
+  ucarelog_or_tty->print_cr("test 7");
+  return !SafepointSynchronize::is_at_safepoint();
+}
+
 inline bool oopDesc::is_oop(bool ignore_mark_word) const {
   oop obj = (oop) this;
   if (!check_obj_alignment(obj)) return false;

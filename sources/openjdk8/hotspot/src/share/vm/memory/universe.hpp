@@ -108,6 +108,10 @@ class Universe: AllStatic {
   friend class VM_PopulateDumpSharedSpace;
   friend class Metaspace;
 
+  // @rayandrew
+  // add this to implement UCARE utilities
+  friend class Ucare;
+
   friend jint  universe_init();
   friend void  universe2_init();
   friend bool  universe_post_init();
@@ -116,6 +120,10 @@ class Universe: AllStatic {
   // @rayandrew
   // variables to hold number of live objects
   static size_t _count_live_objects;
+
+  // @rayandrew
+  // variables to hold number of dead objects
+  static size_t _count_dead_objects;
   
   // Known classes in the VM
   static Klass* _boolArrayKlassObj;
@@ -476,14 +484,20 @@ class Universe: AllStatic {
   // Compiler support
   static int base_vtable_size()               { return _base_vtable_size; }
 
-  // @rayandrew  
+  // @rayandrew
   // get live objects counter
   static size_t get_count_live_objects()      { return _count_live_objects; }
+  // get dead objects counter
+  static size_t get_count_dead_objects()      { return _count_dead_objects; }
 
   // @rayandrew
   // reset live objects counter
   static void   reset_count_live_objects()    {
     _count_live_objects = 0;
+  }
+  // reset dead objects counter
+  static void   reset_count_dead_objects()    {
+    _count_dead_objects = 0;
   }
 
   // @rayandrew
@@ -491,17 +505,29 @@ class Universe: AllStatic {
   static void   set_count_live_objects(size_t count_live_objects) {
     _count_live_objects = count_live_objects;
   }
+  // set dead objects counter
+  static void   set_count_dead_objects(size_t count_dead_objects) {
+    _count_dead_objects = count_dead_objects;
+  }
 
   // @rayandrew
   // increment live objects counter
   static void   inc_count_live_objects() {
     _count_live_objects += 1;
   }
+  // increment dead objects counter
+  static void   inc_count_dead_objects() {
+    _count_dead_objects += 1;
+  }
 
   // @rayandrew
   // decrement live objects counter
   static void   dec_count_live_objects() {
     _count_live_objects -= 1;
+  }
+  // decrement dead objects counter
+  static void   dec_count_dead_objects() {
+    _count_dead_objects -= 1;
   }
 };
 

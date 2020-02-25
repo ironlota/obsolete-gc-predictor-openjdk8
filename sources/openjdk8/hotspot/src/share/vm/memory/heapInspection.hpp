@@ -178,9 +178,6 @@ public:
   }
 };
 
-
-
-
 class KlassInfoEntry: public CHeapObj<mtInternal> {
  private:
   KlassInfoEntry* _next;

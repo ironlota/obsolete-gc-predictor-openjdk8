@@ -281,6 +281,7 @@ class oopDesc {
   bool has_bias_pattern() const;
 
   // asserts
+  static bool check_oop(HeapWord* p, bool ignore_mark_word = false);
   bool is_oop(bool ignore_mark_word = false) const;
   bool is_oop_or_null(bool ignore_mark_word = false) const;
 #ifndef PRODUCT

@@ -60,7 +60,9 @@
 
 // @rayandrew
 // add this to get the live objects
+#include "gc_implementation/shared/gcId.hpp"
 #include "memory/universe.hpp"
+#include "utilities/ucare.hpp"
 
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
 
@@ -240,7 +242,7 @@ bool PSScavenge::invoke() {
   bool full_gc_done = false;
 
   {
-    TraceTime t("[UCARE][Phase 1.1][PSScavenge invoke_no_policy]", NULL, true, true, true, gclog_or_tty);
+    TraceTime t("[UCARE][Phase 1.1][PSScavenge invoke_no_policy]", NULL, true, true, true, ucarelog_or_tty);
     scavenge_done = PSScavenge::invoke_no_policy();
     need_full_gc = !scavenge_done ||
     policy->should_full_GC(heap->old_gen()->free_in_bytes());
@@ -249,8 +251,13 @@ bool PSScavenge::invoke() {
   // @rayandrew
   // add some logs here to get the real information
   // about full gc
-  gclog_or_tty->stamp(PrintGCTimeStamps);
-  gclog_or_tty->print_cr("[UCARE] PSScavenge : [ scavenged_done: %d, need_full_gc: %d ]", scavenge_done, need_full_gc);
+  ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  ucarelog_or_tty->print_cr("[UCARE] PSScavenge : [ scavenged_done: %d, need_full_gc: %d, live_objects: %zu ]", scavenge_done, need_full_gc, Universe::get_count_live_objects());
+
+  // @rayandrew
+  // add this to log live objects counter
+  // ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  // ucarelog_or_tty->print_cr("[UCARE] After GC live objects count : %zu", Universe::get_count_live_objects());
 
   if (UsePerfData) {
     PSGCAdaptivePolicyCounters* const counters = heap->gc_policy_counters();
@@ -264,14 +271,17 @@ bool PSScavenge::invoke() {
     const bool clear_all_softrefs = cp->should_clear_all_soft_refs();
 
     {
-      TraceTime t("[UCARE][Phase 1.2][PSScavenge full_gc]", NULL, true, true, true, gclog_or_tty);
-      gclog_or_tty->print_cr("clear_all_softrefs: %d", clear_all_softrefs);
+      TraceTime t("[UCARE][Phase 1.2][PSScavenge full_gc]", NULL, true, true, true, ucarelog_or_tty);
+      // ucarelog_or_tty->print_cr("clear_all_softrefs: %d", clear_all_softrefs);
       if (UseParallelOldGC) {
         full_gc_done = PSParallelCompact::invoke_no_policy(clear_all_softrefs);
       } else {
         full_gc_done = PSMarkSweep::invoke_no_policy(clear_all_softrefs);
       }
     }
+
+    ucarelog_or_tty->stamp(PrintGCTimeStamps);
+    ucarelog_or_tty->print_cr("[UCARE] %s : [ live_objects: %zu ]", UseParallelOldGC ? "PSParallelCompact" : "PSMarkSweep", Universe::get_count_live_objects());
   }
 
   return full_gc_done;
@@ -296,8 +306,8 @@ bool PSScavenge::invoke_no_policy() {
 
   // @rayandrew
   // add checkpoint for return function
-  gclog_or_tty->stamp(PrintGCTimeStamps);
-  gclog_or_tty->print_cr("[UCARE] Before GC_locker");
+  ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  ucarelog_or_tty->print_cr("[UCARE] Before GC_locker");
   if (GC_locker::check_active_before_gc()) {
     return false;
   }
@@ -308,8 +318,8 @@ bool PSScavenge::invoke_no_policy() {
 
   // @rayandrew
   // add checkpoint for return function
-  gclog_or_tty->stamp(PrintGCTimeStamps);
-  gclog_or_tty->print_cr("[UCARE] Before should_attempt_scavenge");
+  ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  ucarelog_or_tty->print_cr("[UCARE] Before should_attempt_scavenge");
   // Check for potential problems.
   if (!should_attempt_scavenge()) {
     return false;
@@ -428,11 +438,11 @@ bool PSScavenge::invoke_no_policy() {
     {
       // @rayandrew
       // add this to know the time of running heap_traversal (scavenge)
-      TraceTime tt("[UCARE][Phase 1.1.1][PSScavenge heap_traversal_or_scavenge]", NULL, true, true, true, gclog_or_tty);
+      TraceTime tt("[UCARE][Phase 1.1.1][PSScavenge heap_traversal_or_scavenge]", NULL, true, true, true, ucarelog_or_tty);
 
       // @rayandrew
       // reset live objects counter
-      Universe::reset_count_live_objects();
+      // Universe::reset_count_live_objects();
       
       GCTraceTime tm("Scavenge", false, false, &_gc_timer, _gc_tracer.gc_id());
       ParallelScavengeHeap::ParStrongRootsScope psrs;
@@ -473,9 +483,13 @@ bool PSScavenge::invoke_no_policy() {
 
       // @rayandrew
       // add this to log live objects counter
-      gclog_or_tty->stamp(PrintGCTimeStamps);
-      gclog_or_tty->print_cr("[UCARE] After PSScavenge::invoke live objects count : %zu", Universe::get_count_live_objects());
+      // ucarelog_or_tty->stamp(PrintGCTimeStamps);
+      // ucarelog_or_tty->print_cr("[UCARE] After PSScavenge::invoke live objects count : %zu", Universe::get_count_live_objects());
     }
+
+    // @rayandrew
+    // add ucare objects counter
+    Ucare::count_objects(&_is_alive_closure, _gc_tracer.gc_id(), "PSScavenge -- scavenge");
 
     scavenge_midpoint.update();
 
@@ -483,7 +497,7 @@ bool PSScavenge::invoke_no_policy() {
     {
       // @rayandrew
       // add this to know the time of processing references
-      TraceTime tt("[UCARE][Phase 1.1.2][PSScavenge process_references]", NULL, true, true, true, gclog_or_tty);
+      TraceTime tt("[UCARE][Phase 1.1.2][PSScavenge process_references]", NULL, true, true, true, ucarelog_or_tty);
       GCTraceTime tm("References", false, false, &_gc_timer, _gc_tracer.gc_id());
 
       reference_processor()->setup_policy(false); // not always_clear
@@ -515,7 +529,7 @@ bool PSScavenge::invoke_no_policy() {
     {
       // @rayandrew
       // add this to know the time off unlinking string
-      TraceTime tt("[UCARE][Phase 1.1.3][PSScavenge StringTable]", NULL, true, true, true, gclog_or_tty);
+      TraceTime tt("[UCARE][Phase 1.1.3][PSScavenge StringTable]", NULL, true, true, true, ucarelog_or_tty);
       GCTraceTime tm("StringTable", false, false, &_gc_timer, _gc_tracer.gc_id());
       // Unlink any dead interned Strings and process the remaining live ones.
       PSScavengeRootsClosure root_closure(promotion_manager);
@@ -539,7 +553,7 @@ bool PSScavenge::invoke_no_policy() {
     if (!promotion_failure_occurred) {
       // @rayandrew
       // add this to know the time of running heap promotion
-      TraceTime tt("[UCARE][Phase 1.1.4][PSScavenge heap_promotion]", NULL, true, true, true, gclog_or_tty);
+      TraceTime tt("[UCARE][Phase 1.1.4][PSScavenge heap_promotion]", NULL, true, true, true, ucarelog_or_tty);
       
       // Swap the survivor spaces.
       young_gen->eden_space()->clear(SpaceDecorator::Mangle);
@@ -692,7 +706,7 @@ bool PSScavenge::invoke_no_policy() {
     {
       // @rayandrew
       // add this to know the time of pruning scavenge root methods
-      TraceTime t("[UCARE][Phase 1.1.5][PSScavenge prune_scavenge_root_methods]", NULL, true, true, true, gclog_or_tty);
+      TraceTime t("[UCARE][Phase 1.1.5][PSScavenge prune_scavenge_root_methods]", NULL, true, true, true, ucarelog_or_tty);
       GCTraceTime tm("Prune Scavenge Root Methods", false, false, &_gc_timer, _gc_tracer.gc_id());
 
       CodeCache::prune_scavenge_root_nmethods();
@@ -764,8 +778,8 @@ bool PSScavenge::invoke_no_policy() {
 
   // @rayandrew
   // add checkpoint for return function
-  gclog_or_tty->stamp(PrintGCTimeStamps);
-  gclog_or_tty->print_cr("[UCARE] Before the end of function");
+  ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  ucarelog_or_tty->print_cr("[UCARE] Before the end of function");
   
   return !promotion_failure_occurred;
 }
@@ -835,8 +849,8 @@ bool PSScavenge::should_attempt_scavenge() {
 
   // @rayandrew
   // add this line to check this return value
-  gclog_or_tty->stamp(PrintGCTimeStamps);
-  gclog_or_tty->print_cr("[UCARE] Before checking ScavengeWithObjectsIntoSpace : %d", ScavengeWithObjectsInToSpace);
+  ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  ucarelog_or_tty->print_cr("[UCARE] Before checking ScavengeWithObjectsIntoSpace : %d", ScavengeWithObjectsInToSpace);
   if (!ScavengeWithObjectsInToSpace) {
     // Do not attempt to promote unless to_space is empty
     if (!young_gen->to_space()->is_empty()) {
@@ -859,8 +873,8 @@ bool PSScavenge::should_attempt_scavenge() {
 
   // @rayandrew
   // add this line to check this condition
-  gclog_or_tty->stamp(PrintGCTimeStamps);
-  gclog_or_tty->print_cr("[UCARE] PrintGCDetails %d verbose %d", PrintGCDetails, Verbose);
+  ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  ucarelog_or_tty->print_cr("[UCARE] PrintGCDetails %d verbose %d", PrintGCDetails, Verbose);
   if (PrintGCDetails && Verbose) {
     gclog_or_tty->print(result ? "  do scavenge: " : "  skip scavenge: ");
     gclog_or_tty->print_cr(" average_promoted " SIZE_FORMAT

@@ -144,7 +144,7 @@ KlassInfoTable::KlassInfoTable(bool need_class_stats) {
     if (need_class_stats) {
       AllClassesFinder finder(this);
       ClassLoaderDataGraph::classes_do(&finder);
-    }
+     }
   }
 }
 

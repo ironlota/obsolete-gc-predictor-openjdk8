@@ -70,10 +70,6 @@ inline void PSScavenge::copy_and_push_safe_barrier(PSPromotionManager* pm,
                                                    T*                  p) {
   assert(should_scavenge(p, true), "revisiting object?");
 
-  // @rayandrew
-  // increment live objects counter
-  Universe::inc_count_live_objects();
-
   oop o = oopDesc::load_decode_heap_oop_not_null(p);
   oop new_obj = o->is_forwarded()
         ? o->forwardee()
@@ -96,6 +92,9 @@ inline void PSScavenge::copy_and_push_safe_barrier(PSPromotionManager* pm,
   // or from metadata.
   if ((!PSScavenge::is_obj_in_young((HeapWord*)p)) &&
       Universe::heap()->is_in_reserved(p)) {
+    // @rayandrew
+    // increment live objects counter
+    Universe::inc_count_live_objects();
     if (PSScavenge::is_obj_in_young(new_obj)) {
       card_table()->inline_write_ref_field_gc(p, new_obj);
     }
