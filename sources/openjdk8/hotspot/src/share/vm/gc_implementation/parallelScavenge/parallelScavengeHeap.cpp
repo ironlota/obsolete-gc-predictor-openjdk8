@@ -454,7 +454,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
 
   // @rayandrew
   // count object before gc
-  // Ucare::count_all_objects(GCId::peek(), "Before GC");
+  Ucare::count_all_objects(GCId::peek(), "Before GC");
   
   // @rayandrew
   // add this line to get this variable in "global scope"

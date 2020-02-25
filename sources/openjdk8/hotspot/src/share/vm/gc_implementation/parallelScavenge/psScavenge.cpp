@@ -61,6 +61,7 @@
 // @rayandrew
 // add this to get the live objects
 #include "memory/universe.hpp"
+#include "utilities/ucare.hpp"
 
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
 
@@ -432,7 +433,7 @@ bool PSScavenge::invoke_no_policy() {
 
       // @rayandrew
       // reset live objects counter
-      Universe::reset_count_live_objects();
+      // Universe::reset_count_live_objects();
       
       GCTraceTime tm("Scavenge", false, false, &_gc_timer, _gc_tracer.gc_id());
       ParallelScavengeHeap::ParStrongRootsScope psrs;
@@ -477,6 +478,10 @@ bool PSScavenge::invoke_no_policy() {
       gclog_or_tty->print_cr("[UCARE] After PSScavenge::invoke live objects count : %zu", Universe::get_count_live_objects());
     }
 
+    // @rayandrew
+    // add object counters
+    Ucare::count_objects(&_is_alive_closure, _gc_tracer.gc_id(), "PSScavenge::invoke_no_policy -- after scavenge");
+    
     scavenge_midpoint.update();
 
     // Process reference objects discovered during scavenge

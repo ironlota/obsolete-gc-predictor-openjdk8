@@ -62,6 +62,7 @@
 // @rayandrew
 // add this to get the live objects
 #include "memory/universe.hpp"
+#include "utilities/ucare.hpp"
 
 #include <math.h>
 
@@ -2371,7 +2372,7 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
   {
     // @rayandrew
     // reset live objects counter
-    Universe::reset_count_live_objects();
+    // Universe::reset_count_live_objects();
     
     GCTraceTime tm_m("par mark", print_phases(), true, &_gc_timer, _gc_tracer.gc_id());
 
@@ -2401,9 +2402,13 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
 
     // @rayandrew
     // add this to log live objects counter
-    gclog_or_tty->stamp(PrintGCTimeStamps);
-    gclog_or_tty->print_cr("[UCARE] After PSParallelCompact::invoke live objects count : %zu", Universe::get_count_live_objects());
+    // gclog_or_tty->stamp(PrintGCTimeStamps);
+    // gclog_or_tty->print_cr("[UCARE] After PSParallelCompact::invoke live objects count : %zu", Universe::get_count_live_objects());
   }
+
+  // @rayandrew
+  // add object counters
+  Ucare::count_objects(&_is_alive_closure, _gc_tracer.gc_id(), "PSParallelCompact::invoke_no_policy -- after marking");
 
   // Process reference objects found during marking
   {

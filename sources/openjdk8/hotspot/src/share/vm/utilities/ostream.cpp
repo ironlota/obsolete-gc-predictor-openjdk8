@@ -1218,7 +1218,7 @@ void ostream_init_log() {
       // with tty.
       ucarelog->time_stamp().update_to(tty->time_stamp().ticks());
     }
-    gclog_or_tty = ucarelog;
+    ucarelog_or_tty = ucarelog;
   }
 
 #if INCLUDE_CDS

@@ -577,6 +577,38 @@ inline bool oopDesc::has_bias_pattern() const {
 }
 
 
+// @rayandrew
+// static method to check `HeapWord`
+// used only for asserts
+inline bool oopDesc::check_oop(HeapWord* p, bool ignore_mark_word) {
+  ucarelog_or_tty->print_cr("oopDesc::check_oop " INTPTR_FORMAT "test 1", p);
+  oop obj = oop(p);
+  ucarelog_or_tty->print_cr("oopDesc::check_oop " INTPTR_FORMAT "test 2", p);
+  if (!check_obj_alignment(obj)) return false;
+  ucarelog_or_tty->print_cr("oopDesc::check_oop " INTPTR_FORMAT "test 3", p);
+  if (!Universe::heap()->is_in_reserved(obj)) return false;
+  ucarelog_or_tty->print_cr("oopDesc::check_oop " INTPTR_FORMAT "test 4", p);
+  // obj is aligned and accessible in heap
+  if (Universe::heap()->is_in_reserved(obj->klass_or_null())) return false;
+
+  // Header verification: the mark is typically non-NULL. If we're
+  // at a safepoint, it must not be null.
+  // Outside of a safepoint, the header could be changing (for example,
+  // another thread could be inflating a lock on this object).
+  ucarelog_or_tty->print_cr("oopDesc::check_oop " INTPTR_FORMAT "test 5", p);
+  if (ignore_mark_word) {
+    return true;
+  }
+
+  ucarelog_or_tty->print_cr("oopDesc::check_oop " INTPTR_FORMAT "test 6", p);
+  if (obj->mark() != NULL) {
+    return true;
+  }
+
+  ucarelog_or_tty->print_cr("oopDesc::check_oop " INTPTR_FORMAT "test 7", p);
+  return !SafepointSynchronize::is_at_safepoint();
+}
+
 // used only for asserts
 inline bool oopDesc::is_oop(bool ignore_mark_word) const {
   oop obj = (oop) this;
