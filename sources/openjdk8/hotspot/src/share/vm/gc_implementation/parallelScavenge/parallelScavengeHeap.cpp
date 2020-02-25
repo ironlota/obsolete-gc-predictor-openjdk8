@@ -486,6 +486,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
     result = young_gen()->allocate(size);
   }
 
+
   ucarelog_or_tty->stamp(PrintGCTimeStamps);
   ucarelog_or_tty->print_cr("[UCARE] Allocation failed : [ invoked_full_gc: %d, result==NULL: %d ]", invoked_full_gc, result == NULL);
 
