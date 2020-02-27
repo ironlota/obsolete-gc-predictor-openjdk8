@@ -182,7 +182,7 @@ TraceCPUTime::TraceCPUTime(bool doit,
   _starting_system_time(0.0),
   _starting_real_time(0.0),
   _logfile(logfile),
-  _error(false) {
+  _error(false) { 
   if (_active) {
     if (logfile != NULL) {
       _logfile = logfile;

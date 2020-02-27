@@ -1,0 +1,30 @@
+#+TITLE: Notes of Implementation
+#+AUTHOR: Ray Andrew <raydreww@gmail.com>
+
+* object_iterate -> not safe at all in some conditions
+** use ObjectClosure to iterate the heap
+** eq: 
+   Young Gen consists of 3 spaces
+   These 3 spaces are actually instances of MutableSpace / NUMAMutableSpace.
+   In some points in safepoint (full_collection in heap / GC), this 
+   *object_iterate* method is not safe because there maybe exist
+   pointer that is actually not an oop (empty pointer). This leads to many
+   problems that require us to call *oop* methods such as /size()/, /marked()/,
+   etc.
+
+* OopClosure to the rescue
+** We must know the differences between OopClosure and ObjectClosure
+*** OopClosure -> iterate over */references/* of Java objects itself
+*** ObjectClosure -> iterate over object space itself
+** Why this is good :
+*** We get the *reference of object* instead of the real *object*
+*** We can safely iterate through heap, generation, or space just like the
+    *walk from roots* in so many GC implementations
+
+* Ideas
+** How to extend OopClosure to have our counter implementation without actually 
+   modifying the *OopClosure* itself
+*** If we can achieve this, we do not need to change the implementation of the
+    closure in each heap
+
+

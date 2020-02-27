@@ -42,6 +42,12 @@
 #include "services/management.hpp"
 #include "utilities/taskqueue.hpp"
 
+// @rayandrew
+// add ucare
+#include "gc_implementation/shared/gcId.hpp"
+#include "utilities/ucare.hpp"
+#include "gc_implementation/shared/ucare.gc.inline.hpp"
+
 //
 // ScavengeRootsTask
 //
@@ -50,55 +56,66 @@ void ScavengeRootsTask::do_it(GCTaskManager* manager, uint which) {
   assert(Universe::heap()->is_gc_active(), "called outside gc");
 
   PSPromotionManager* pm = PSPromotionManager::gc_thread_promotion_manager(which);
-  PSScavengeRootsClosure roots_closure(pm);
+  
+  Ucare::PSScavengeRootsClosure roots_closure(pm);
   PSPromoteRootsClosure  roots_to_old_closure(pm);
-
+  
   switch (_root_type) {
     case universe:
+      roots_closure.set_root_type(Ucare::universe);
       Universe::oops_do(&roots_closure);
       break;
 
     case jni_handles:
+      roots_closure.set_root_type(Ucare::jni_handles);
       JNIHandles::oops_do(&roots_closure);
       break;
 
     case threads:
-    {
-      ResourceMark rm;
-      CLDClosure* cld_closure = NULL; // Not needed. All CLDs are already visited.
-      Threads::oops_do(&roots_closure, cld_closure, NULL);
-    }
-    break;
+      roots_closure.set_root_type(Ucare::threads);
+      {
+        ResourceMark rm;
+        CLDClosure* cld_closure = NULL; // Not needed. All CLDs are already visited.
+        Threads::oops_do(&roots_closure, cld_closure, NULL);
+      }
+     break;
 
     case object_synchronizer:
+      roots_closure.set_root_type(Ucare::object_synchronizer);
       ObjectSynchronizer::oops_do(&roots_closure);
       break;
 
     case flat_profiler:
+      roots_closure.set_root_type(Ucare::flat_profiler);
       FlatProfiler::oops_do(&roots_closure);
       break;
 
     case system_dictionary:
+      roots_closure.set_root_type(Ucare::system_dictionary);
       SystemDictionary::oops_do(&roots_closure);
       break;
 
     case class_loader_data:
-    {
-      PSScavengeKlassClosure klass_closure(pm);
-      ClassLoaderDataGraph::oops_do(&roots_closure, &klass_closure, false);
-    }
-    break;
+      roots_closure.set_root_type(Ucare::class_loader_data);
+      {
+        PSScavengeKlassClosure klass_closure(pm);
+        ClassLoaderDataGraph::oops_do(&roots_closure, &klass_closure, false);
+      }
+      break;
 
     case management:
+      roots_closure.set_root_type(Ucare::management);
       Management::oops_do(&roots_closure);
       break;
 
     case jvmti:
+      roots_closure.set_root_type(Ucare::jvmti);
       JvmtiExport::oops_do(&roots_closure);
       break;
 
 
-    case code_cache:
+    case code_cache: 
+      roots_closure.set_root_type(Ucare::code_cache);     
       {
         MarkingCodeBlobClosure each_scavengable_code_blob(&roots_to_old_closure, CodeBlobToOopClosure::FixRelocations);
         CodeCache::scavenge_root_nmethods_do(&each_scavengable_code_blob);
@@ -108,6 +125,8 @@ void ScavengeRootsTask::do_it(GCTaskManager* manager, uint which) {
     default:
       fatal("Unknown root type");
   }
+
+  roots_closure.print_info();
 
   // Do the real work
   pm->drain_stacks(false);

@@ -452,9 +452,14 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   assert(!Universe::heap()->is_gc_active(), "not reentrant");
   assert(!Heap_lock->owned_by_self(), "this thread should not own the Heap_lock");
 
+
+  // @rayandrew
+  // get id of this gc
+  GCId gc_id = GCId::peek();
+
   // @rayandrew
   // count object before gc
-  Ucare::count_all_objects(GCId::peek(), "Before GC");
+  Ucare::count_all_objects(gc_id, "Before GC");
   
   // @rayandrew
   // add this line to get this variable in "global scope"
@@ -568,7 +573,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
 
   // @rayandrew
   // count object before gc
-  Ucare::count_all_objects(GCId::peek(), "After GC");
+  Ucare::count_all_objects(gc_id, "After GC");
 
   return result;
 }
@@ -576,6 +581,11 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
 void ParallelScavengeHeap::ensure_parsability(bool retire_tlabs) {
   CollectedHeap::ensure_parsability(retire_tlabs);
   young_gen()->eden_space()->ensure_parsability();
+
+  // @rayandrew
+  // add this to ensure parsability of `Survivor` space
+  // young_gen()->from_space()->ensure_parsability();
+  // young_gen()->to_space()->ensure_parsability();
 }
 
 size_t ParallelScavengeHeap::tlab_capacity(Thread* thr) const {
@@ -632,6 +642,10 @@ void ParallelScavengeHeap::oop_iterate(ExtendedOopClosure* cl) {
 }
 
 void ParallelScavengeHeap::object_iterate(ObjectClosure* cl) {
+  // @rayandrew
+  // ensure parsability of all objects in the heap
+  ensure_parsability(false);
+  
   young_gen()->object_iterate(cl);
   old_gen()->object_iterate(cl);
 }

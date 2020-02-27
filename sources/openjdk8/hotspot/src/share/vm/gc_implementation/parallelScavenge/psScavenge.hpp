@@ -33,6 +33,10 @@
 #include "oops/oop.hpp"
 #include "utilities/stack.hpp"
 
+// @rayandrew
+// add `Ucare` class
+#include "utilities/ucare.hpp"
+
 class GCTaskManager;
 class GCTaskQueue;
 class OopStack;
@@ -48,12 +52,16 @@ class PSScavenge: AllStatic {
   friend class PSKeepAliveClosure;
   friend class PSPromotionManager;
 
- enum ScavengeSkippedCause {
-   not_skipped = 0,
-   to_space_not_empty,
-   promoted_too_large,
-   full_follows_scavenge
- };
+  // @rayandrew
+  // add this to make `Ucare` friendable
+  friend class Ucare;
+
+  enum ScavengeSkippedCause {
+    not_skipped = 0,
+    to_space_not_empty,
+    promoted_too_large,
+    full_follows_scavenge
+  };
 
   // Saved value of to_space->top(), used to prevent objects in to_space from
   // being rescanned.

@@ -35,6 +35,10 @@
 #include "memory/sharedHeap.hpp"
 #include "oops/oop.hpp"
 
+// @rayandrew
+// add `Ucare` class and stuffs
+#include "utilities/ucare.hpp"
+
 class ParallelScavengeHeap;
 class PSAdaptiveSizePolicy;
 class PSYoungGen;
@@ -974,6 +978,10 @@ class PSParallelCompact : AllStatic {
   friend class InstanceClassLoaderKlass;
   friend class RefProcTaskProxy;
 
+  // @rayandrew
+  // add this to make `Ucare` friendable
+  friend class Ucare;
+
  private:
   static STWGCTimer           _gc_timer;
   static ParallelOldTracer    _gc_tracer;
@@ -1361,9 +1369,6 @@ inline void PSParallelCompact::mark_and_push(ParCompactionManager* cm, T* p) {
     oop obj = oopDesc::decode_heap_oop_not_null(heap_oop);
     if (mark_bitmap()->is_unmarked(obj) && mark_obj(obj)) {
       cm->push(obj);
-    }
-    if (is_marked(obj)) {
-      Universe::inc_count_live_objects();
     }
   }
 }

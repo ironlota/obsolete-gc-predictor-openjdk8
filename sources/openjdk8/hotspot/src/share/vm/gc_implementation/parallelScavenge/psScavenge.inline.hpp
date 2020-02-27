@@ -32,6 +32,10 @@
 #include "gc_implementation/parallelScavenge/psScavenge.hpp"
 #include "memory/iterator.hpp"
 
+// @rayandrew
+// add `Ucare` class
+#include "utilities/ucare.hpp"
+
 inline void PSScavenge::save_to_space_top_before_gc() {
   ParallelScavengeHeap* heap = (ParallelScavengeHeap*)Universe::heap();
   _to_space_top_before_gc = heap->young_gen()->to_space()->top();
@@ -69,10 +73,6 @@ template <class T, bool promote_immediately>
 inline void PSScavenge::copy_and_push_safe_barrier(PSPromotionManager* pm,
                                                    T*                  p) {
   assert(should_scavenge(p, true), "revisiting object?");
-
-  // @rayandrew
-  // increment live objects counter
-  Universe::inc_count_live_objects();
 
   oop o = oopDesc::load_decode_heap_oop_not_null(p);
   oop new_obj = o->is_forwarded()

@@ -240,17 +240,17 @@ void MutableSpace::object_iterate(ObjectClosure* cl) {
   while (p < top()) {
     // oopDesc* object = oop(p);
     // ucarelog_or_tty->print_cr("HeapWord " INTPTR_FORMAT " oop " INTPTR_FORMAT, p, object);
-    ucarelog_or_tty->print_cr("Curr " INTPTR_FORMAT " top() " INTPTR_FORMAT " bottom() " INTPTR_FORMAT, p, top(), bottom());
-    ucarelog_or_tty->print_cr("TestACC %d", oopDesc::check_oop(p));
-    //ucarelog_or_tty->print_cr("is this null %d " INTPTR_FORMAT " %d", oopDesc::is_null(oop(p)), oop(p), oop(p)->is_oop());
-    ucarelog_or_tty->print_cr("begin str %s", oop(p)->print_string());
-    if (oopDesc::check_oop(p)) {
-      cl->do_object(oop(p));
-      p += oop(p)->size(); // this will be failed
-    } else {
-      p += 1;
-    }
-    ucarelog_or_tty->print_cr("end size %d", oop(p)->size());
+    // ucarelog_or_tty->print_cr("Curr " INTPTR_FORMAT " top() " INTPTR_FORMAT " bottom() " INTPTR_FORMAT, p, top(), bottom());
+    // ucarelog_or_tty->print_cr("TestACC %d", oopDesc::check_oop(p));
+    // ucarelog_or_tty->print_cr("is this null %d " INTPTR_FORMAT " %d", oopDesc::is_null(oop(p)), oop(p), oop(p)->is_oop());
+    // ucarelog_or_tty->print_cr("begin str %s", oop(p)->print_string());
+    // if (oopDesc::check_oop(p)) {
+    cl->do_object(oop(p));
+    p += oop(p)->size(); // this will be failed
+    // } else {
+      // p += 1;
+    // }
+    // ucarelog_or_tty->print_cr("end size %d", oop(p)->size());
   }
 }
 

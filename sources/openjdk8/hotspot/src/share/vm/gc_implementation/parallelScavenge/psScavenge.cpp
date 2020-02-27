@@ -430,10 +430,6 @@ bool PSScavenge::invoke_no_policy() {
       // @rayandrew
       // add this to know the time of running heap_traversal (scavenge)
       TraceTime tt("[UCARE][Phase 1.1.1][PSScavenge heap_traversal_or_scavenge]", NULL, true, true, true, gclog_or_tty);
-
-      // @rayandrew
-      // reset live objects counter
-      // Universe::reset_count_live_objects();
       
       GCTraceTime tm("Scavenge", false, false, &_gc_timer, _gc_tracer.gc_id());
       ParallelScavengeHeap::ParStrongRootsScope psrs;
@@ -471,16 +467,11 @@ bool PSScavenge::invoke_no_policy() {
       }
 
       gc_task_manager()->execute_and_wait(q);
-
-      // @rayandrew
-      // add this to log live objects counter
-      gclog_or_tty->stamp(PrintGCTimeStamps);
-      gclog_or_tty->print_cr("[UCARE] After PSScavenge::invoke live objects count : %zu", Universe::get_count_live_objects());
     }
 
     // @rayandrew
     // add object counters
-    Ucare::count_objects(&_is_alive_closure, _gc_tracer.gc_id(), "PSScavenge::invoke_no_policy -- after scavenge");
+    // Ucare::count_objects(&_is_alive_closure, _gc_tracer.gc_id(), "PSScavenge::invoke_no_policy -- after scavenge");
     
     scavenge_midpoint.update();
 
@@ -689,6 +680,10 @@ bool PSScavenge::invoke_no_policy() {
 
       assert(young_gen->to_space()->is_empty(), "to space should be empty now");
     }
+
+    // @rayandrew
+    // add object counters
+    Ucare::count_objects(&_is_alive_closure, _gc_tracer.gc_id(), "PSScavenge::invoke_no_policy -- after scavenge");
 
     COMPILER2_PRESENT(DerivedPointerTable::update_pointers());
 

@@ -104,7 +104,7 @@ class WorkerThread;
 class Thread: public ThreadShadow {
   friend class VMStructs;
  private:
-  // Exception handling
+  // Exception handling\
   // (Note: _pending_exception and friends are in ThreadShadow)
   //oop       _pending_exception;                // pending exception for current thread
   // const char* _exception_file;                   // file information for exception (debugging only)
