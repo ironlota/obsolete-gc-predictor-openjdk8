@@ -46,6 +46,11 @@ class elapsedTimer VALUE_OBJ_CLASS_SPEC {
   jlong ticks() const        { return _counter; }
   jlong active_ticks() const;
   bool  is_active() const { return _active; }
+
+  // @rayandrew
+  // add this to know the elapsed seconds
+  // without stopping timer
+  double elapsed_seconds() const;
 };
 
 // TimeStamp is used for recording when an event took place.

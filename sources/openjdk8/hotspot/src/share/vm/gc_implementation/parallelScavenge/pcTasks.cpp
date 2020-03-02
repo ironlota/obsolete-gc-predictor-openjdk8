@@ -90,6 +90,9 @@ void MarkFromRootsTask::do_it(GCTaskManager* manager, uint which) {
     PrintGCDetails && TraceParallelOldGCTasks, true, NULL, PSParallelCompact::gc_tracer()->gc_id()));
   ParCompactionManager* cm =
     ParCompactionManager::gc_thread_compaction_manager(which);
+
+  // @rayandrew
+  // keep this as fallback
   // PSParallelCompact::MarkAndPushClosure mark_and_push_closure(cm);
   // PSParallelCompact::FollowKlassClosure follow_klass_closure(&mark_and_push_closure);
 
@@ -150,6 +153,7 @@ void MarkFromRootsTask::do_it(GCTaskManager* manager, uint which) {
       break;
 
     case code_cache:
+      mark_and_push_closure.set_root_type(Ucare::code_cache);
       // Do not treat nmethods as strong roots for mark/sweep, since we can unload them.
       //CodeCache::scavenge_root_nmethods_do(CodeBlobToOopClosure(&mark_and_push_closure));
       break;
@@ -158,6 +162,7 @@ void MarkFromRootsTask::do_it(GCTaskManager* manager, uint which) {
       fatal("Unknown root type");
   }
 
+  Ucare::get_old_gen_oop_container()->add_counter(&mark_and_push_closure);
   mark_and_push_closure.print_info();
 
   // Do the real work

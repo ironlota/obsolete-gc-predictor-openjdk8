@@ -1,30 +1,94 @@
 #include "precompiled.hpp"
-
+#include "classfile/systemDictionary.hpp"
+#include "code/codeCache.hpp"
 #include "gc_implementation/shared/gcId.hpp"
 #include "memory/allocation.hpp"
 #include "memory/iterator.hpp"
 #include "memory/resourceArea.hpp"
 #include "memory/universe.hpp"
-#include "runtime/timer.hpp"
+#include "oops/oop.inline.hpp"
+#include "oops/oop.psgc.inline.hpp"
+#include "runtime/fprofiler.hpp"
+#include "runtime/thread.hpp"
+#include "runtime/vmThread.hpp"
+#include "services/management.hpp"
 #include "utilities/globalDefinitions.hpp"
 #include "utilities/ostream.hpp"
 #include "utilities/ucare.hpp"
 
-int Ucare::RootTypeMixin::NUM_OF_ROOTS = 10;
 
 jint Ucare::initialize() {
   return JNI_OK;
 }
 
-class UcareAlwaysTrueClosure: public BoolObjectClosure {
-public:
-  bool do_object_b(oop p) { return true; }
+int Ucare::RootTypeMixin::NUM_OF_ROOTS = 10;
+
+// Container
+Ucare::TraceAndCountRootOopClosureContainer* Ucare::_young_gen_oop_container = NULL;
+Ucare::TraceAndCountRootOopClosureContainer* Ucare::_old_gen_oop_container = NULL;
+
+void Ucare::reset_young_gen_oop_container() {
+  _young_gen_oop_container = NULL;
+}
+
+void Ucare::reset_old_gen_oop_container() {
+  _old_gen_oop_container = NULL;
+}
+
+void Ucare::set_young_gen_oop_container(Ucare::TraceAndCountRootOopClosureContainer* container) {
+  assert(container != NULL, "ptr should not be NULL");
+  _young_gen_oop_container = container;
+}
+
+void Ucare::set_old_gen_oop_container(Ucare::TraceAndCountRootOopClosureContainer* container) {
+  assert(container != NULL, "ptr should not be NULL");
+  _old_gen_oop_container = container;
+}
+
+Ucare::TraceAndCountRootOopClosureContainer* Ucare::get_young_gen_oop_container() {
+  assert(_young_gen_oop_container != NULL, "ptr should not be NULL");
+  return _young_gen_oop_container;
+}
+
+Ucare::TraceAndCountRootOopClosureContainer* Ucare::get_old_gen_oop_container() {
+  assert(_old_gen_oop_container != NULL, "ptr should not be NULL");
+  return _old_gen_oop_container;
+}
+
+// UcareHeapOopClosure
+class UcareHeapOopClosure: public Ucare::BoolOopClosure {
+  public:
+    bool do_oop_b(oop* p) {
+      oop o = oopDesc::load_heap_oop(p);
+      return !oopDesc::is_null(o) && o->is_oop(false);
+    }
+
+    bool do_oop_b(narrowOop* p) {
+      oop o = oopDesc::load_decode_heap_oop(p);
+      return !oopDesc::is_null(o) && o->is_oop(false);
+    }
+};
+
+static UcareHeapOopClosure    heap_oop_closure;
+
+// UcareAlwaysTrueClosure
+class UcareAlwaysTrueClosure: public BoolObjectClosure, public Ucare::BoolOopClosure {
+  public:
+    bool do_oop_b(oop* p) { return true; }
+    bool do_oop_b(narrowOop* p) { return true; }
+    bool do_object_b(oop p) { return true; }
 };
 
 static UcareAlwaysTrueClosure always_true;
 
 // mixins
 //// ObjectCounterMixin
+void Ucare::ObjectCounterMixin::reset() {
+  _dead = 0;
+  _live = 0;
+  _total = 0;
+}
+
 void Ucare::ObjectCounterMixin::set_dead_object_counts(size_t dead) {
   _dead = dead;
 }
@@ -86,7 +150,6 @@ size_t Ucare::ObjectCounterMixin::get_total_object_counts() const {
 }
 
 //// TraceTimeMixin
-
 Ucare::TraceTimeMixin::TraceTimeMixin(elapsedTimer* accumulator, bool active) {
   _active = active;
   if (_active) {
@@ -100,6 +163,14 @@ Ucare::TraceTimeMixin::~TraceTimeMixin() {
     _t.stop();
     if (_accumulator != NULL) _accumulator->add(_t);
   }
+}
+
+double Ucare::TraceTimeMixin::elapsed_seconds() const {
+  return _t.elapsed_seconds();
+}
+
+double Ucare::TraceTimeMixin::elapsed_milliseconds() const {
+  return _t.elapsed_seconds() * 1000;
 }
 
 //// RootTypeMixin
@@ -139,12 +210,12 @@ const char* Ucare::RootTypeMixin::get_root_type_as_string(RootType type) {
 
 
 // closures
-
-bool Ucare::HeapIterationClosure::is_object_live(oop obj) {
+// HeapObjectIterationClosure
+bool Ucare::ObjectIterationClosure::is_object_live(oop obj) {
   return _live_filter != NULL && _live_filter->do_object_b(obj);
 }
 
-void Ucare::HeapIterationClosure::do_object(oop obj) {
+void Ucare::ObjectIterationClosure::do_object(oop obj) {
   inc_total_object_counts();
   if (is_object_live(obj)) {
     inc_live_object_counts();
@@ -165,35 +236,146 @@ void Ucare::TraceAndCountRootOopClosure::print_info() {
   // this call is intended by the caller
 
   // ucarelog_or_tty->stamp(PrintGCTimeStamps);
-  ucarelog_or_tty->print_cr("%s: { root_type: \"%s\", gc_id: %u, elapsed_time: { value: %3.7f, unit: \"ms\" }, objects: { dead: %zu, live: %zu, total: %zu } }", _id, RootTypeMixin::get_root_type_as_string(_root_type), _gc_id.id(), _t.seconds() * 1000.0, get_dead_object_counts(), get_live_object_counts(), get_total_object_counts());
+  ucarelog_or_tty->print_cr("  %s: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", RootTypeMixin::get_root_type_as_string(_root_type), elapsed_milliseconds(), get_dead_object_counts(), get_live_object_counts(), get_total_object_counts());
+  // ucarelog_or_tty->print_cr("%s: { root_type: \"%s\", gc_id: %u, elapsed_time: { value: %3.7f, unit: \"ms\" }, objects: { dead: %zu, live: %zu, total: %zu } }", _id, RootTypeMixin::get_root_type_as_string(_root_type), _gc_id.id(), _t.elapsed_seconds() * 1000.0, get_dead_object_counts(), get_live_object_counts(), get_total_object_counts());
 }
 
 //// TraceAndCountRootOopClosureContainer
-Ucare::TraceAndCountRootOopClosureContainer::~TraceAndCountRootOopClosureContainer() {
-  ucarelog_or_tty->stamp(PrintGCTimeStamps);
-  ucarelog_or_tty->print_cr("TraceAndCountRootOopClosureContainer: { context: \"%s\", gc_id: %u, elapsed_time: { value: %3.7f, unit: \"ms\" }, roots_walk_count: %zu, objects: { dead: %zu, live: %zu, total: %zu } }", _context, _gc_id.id(), _t.seconds() * 1000.0, _added_count, get_dead_object_counts(), get_live_object_counts(), get_total_object_counts());
+Ucare::TraceAndCountRootOopClosureContainer::TraceAndCountRootOopClosureContainer(GCId gc_id, const char* context, bool verbose): _gc_id(gc_id), _context(context), _added_count(0), _verbose(verbose) {
+  if (_verbose) {
+    ucarelog_or_tty->stamp(PrintGCTimeStamps);
+    ucarelog_or_tty->print_cr("[TraceCountRootOopClosureContainer: context=%s, gc_id=%u", context, gc_id.id());
+  }
 }
 
-void Ucare::TraceAndCountRootOopClosureContainer::add_counter(const TraceAndCountOopClosure* oop_closure) {
+Ucare::TraceAndCountRootOopClosureContainer::~TraceAndCountRootOopClosureContainer() {
+  if (_verbose) {
+    ucarelog_or_tty->print_cr("  summaries: context=%s, gc_id=%u, elapsed=%3.7fms, roots_walk_count=%zu, dead_objects=%zu, live_objects=%zu, total_objects=%zu]", _context, _gc_id.id(), _t.elapsed_seconds() * 1000.0, _added_count, get_dead_object_counts(), get_live_object_counts(), get_total_object_counts());
+  }
+}
+
+void Ucare::TraceAndCountRootOopClosureContainer::reset_counter() {
+  ObjectCounterMixin::reset();
+}
+
+void Ucare::TraceAndCountRootOopClosureContainer::add_counter(const TraceAndCountRootOopClosure* oop_closure) {
   _added_count++;
-  add_counter(oop_closure);
+  ObjectCounterMixin::add_counter(oop_closure);
+}
+
+void Ucare::TraceAndCountRootOopClosureContainer::add_counter(const ObjectCounterMixin* object_counter) {
+  _added_count++;
+  ObjectCounterMixin::add_counter(object_counter);
+}
+
+// we only need to iterate strong roots
+void Ucare::count_oops(BoolOopClosure* filter, const GCId& gc_id, const char* phase) {
+  assert(Universe::heap()->is_gc_active(), "called outside gc");
+  ResourceMark rm;
+
+  // OopClosure oops;
+  // CLDClosure clds;
+  // CodeBlobClosure blobs;
+
+  // stringStream ss;
+  // ss.print("Count oops for %s", phase);
+  
+  TraceAndCountRootOopClosureContainer oop_container(gc_id, phase);
+  
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    Universe::oops_do(&hic); // -- strong
+    ucarelog_or_tty->print_cr("  Universe: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    JNIHandles::oops_do(&hic); // -- strong
+    ucarelog_or_tty->print_cr("  JNIHandles: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    CodeBlobToOopClosure code_blob_closure(&hic, !CodeBlobToOopClosure::FixRelocations);
+    CLDToOopClosure cld_to_oop_closure(&hic);
+    Threads::oops_do(&hic, &cld_to_oop_closure, &code_blob_closure); // -- strong
+    ucarelog_or_tty->print_cr("  Threads: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    ObjectSynchronizer::oops_do(&hic); // -- strong
+    ucarelog_or_tty->print_cr("  ObjectSynchronizer: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    FlatProfiler::oops_do(&hic); // -- strong
+    ucarelog_or_tty->print_cr("  FlatProfiler: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    SystemDictionary::always_strong_oops_do(&hic); // -- strong
+    ucarelog_or_tty->print_cr("  SystemDictionary: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    KlassToOopClosure klass_closure(&hic);
+    ClassLoaderDataGraph::always_strong_oops_do(&hic, &klass_closure, false); // -- strong
+    ucarelog_or_tty->print_cr("  ClassLoaderDataGraph: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    Management::oops_do(&hic); // -- strong
+    ucarelog_or_tty->print_cr("  Management: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    OopIterationClosure hic(filter);
+    TraceTimeMixin t;
+    JvmtiExport::oops_do(&hic); // -- strong
+    ucarelog_or_tty->print_cr("  JVMTIExport: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", t.elapsed_milliseconds(), hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+    oop_container.add_counter((const ObjectCounterMixin*) &hic);
+  }
+  {
+    // CodeCache::blobs_do(&blobs); // this will be needed somehow in G1GC, take a stub first
+  }
+}
+
+void Ucare::count_all_oops(const GCId& gc_id, const char* phase) {
+  assert(Universe::heap()->is_gc_active(), "called outside gc");
+  count_oops(&heap_oop_closure, gc_id, phase);
 }
 
 void Ucare::count_objects(BoolObjectClosure* filter, const GCId& gc_id, const char* phase) {
+  assert(Universe::heap()->is_gc_active(), "called outside gc");
+  
   ResourceMark rm;
 
-  HeapIterationClosure hic(filter);
+  ObjectIterationClosure hic(filter);
   elapsedTimer time_execution;
   
   {
-    TraceTime t("process_objects_counting", &time_execution);
+    TraceTimeMixin t(&time_execution);
     Universe::heap()->object_iterate(&hic);
   }
   
   ucarelog_or_tty->stamp(PrintGCTimeStamps);
-  ucarelog_or_tty->print_cr("object_counter: { gc_id: %u, phase: \"%s\", elapsed_time: { value: %3.7f, unit: \"ms\" }, counter: { dead: %zu, live: %zu, total: %zu } }", gc_id.id(), phase, time_execution.seconds() * 1000.0, hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
+  ucarelog_or_tty->print_cr("count_objects: { gc_id: %u, phase: \"%s\", elapsed_time: { value: %3.7f, unit: \"ms\" }, objects: { dead: %zu, live: %zu, total: %zu } }", gc_id.id(), phase, time_execution.seconds() * 1000.0, hic.get_dead_object_counts(), hic.get_live_object_counts(), hic.get_total_object_counts());
 }
 
 void Ucare::count_all_objects(const GCId& gc_id, const char* phase) {
+  assert(Universe::heap()->is_gc_active(), "called outside gc");
   count_objects(&always_true, gc_id, phase);
 }

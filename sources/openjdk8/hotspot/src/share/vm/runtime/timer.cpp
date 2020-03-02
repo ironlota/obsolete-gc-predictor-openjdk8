@@ -66,6 +66,10 @@ void elapsedTimer::stop() {
   }
 }
 
+double elapsedTimer::elapsed_seconds() const {
+  return TimeHelper::counter_to_seconds(os::elapsed_counter() - _start_counter);
+}
+
 double elapsedTimer::seconds() const {
  return TimeHelper::counter_to_seconds(_counter);
 }

@@ -122,10 +122,6 @@ class Universe: AllStatic {
   friend bool  universe_post_init();
 
  private:
-  // @rayandrew
-  // variables to hold number of live objects
-  static size_t _count_live_objects;
-  
   // Known classes in the VM
   static Klass* _boolArrayKlassObj;
   static Klass* _byteArrayKlassObj;
@@ -484,34 +480,6 @@ class Universe: AllStatic {
 
   // Compiler support
   static int base_vtable_size()               { return _base_vtable_size; }
-
-  // @rayandrew  
-  // get live objects counter
-  static size_t get_count_live_objects()      { return _count_live_objects; }
-
-  // @rayandrew
-  // reset live objects counter
-  static void   reset_count_live_objects()    {
-    _count_live_objects = 0;
-  }
-
-  // @rayandrew
-  // set live objects counter
-  static void   set_count_live_objects(size_t count_live_objects) {
-    _count_live_objects = count_live_objects;
-  }
-
-  // @rayandrew
-  // increment live objects counter
-  static void   inc_count_live_objects() {
-    _count_live_objects += 1;
-  }
-
-  // @rayandrew
-  // decrement live objects counter
-  static void   dec_count_live_objects() {
-    _count_live_objects -= 1;
-  }
 };
 
 class DeferredObjAllocEvent : public CHeapObj<mtInternal> {

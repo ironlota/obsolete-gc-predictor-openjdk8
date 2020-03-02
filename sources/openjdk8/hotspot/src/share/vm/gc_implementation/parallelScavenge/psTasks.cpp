@@ -126,6 +126,7 @@ void ScavengeRootsTask::do_it(GCTaskManager* manager, uint which) {
       fatal("Unknown root type");
   }
 
+  Ucare::get_young_gen_oop_container()->add_counter(&roots_closure);
   roots_closure.print_info();
 
   // Do the real work

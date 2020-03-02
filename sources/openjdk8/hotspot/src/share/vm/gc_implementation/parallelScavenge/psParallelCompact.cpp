@@ -2371,8 +2371,9 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
 
   {
     // @rayandrew
-    // reset live objects counter
-    // Universe::reset_count_live_objects();
+    // add oop container
+    Ucare::TraceAndCountRootOopClosureContainer oop_container(_gc_tracer.gc_id(), "OldGen");
+    Ucare::set_old_gen_oop_container(&oop_container);
     
     GCTraceTime tm_m("par mark", print_phases(), true, &_gc_timer, _gc_tracer.gc_id());
 
@@ -2401,9 +2402,8 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
     gc_task_manager()->execute_and_wait(q);
 
     // @rayandrew
-    // add this to log live objects counter
-    // gclog_or_tty->stamp(PrintGCTimeStamps);
-    // gclog_or_tty->print_cr("[UCARE] After PSParallelCompact::invoke live objects count : %zu", Universe::get_count_live_objects());
+    // reset oop container
+    Ucare::reset_old_gen_oop_container();
   }
 
   // @rayandrew
