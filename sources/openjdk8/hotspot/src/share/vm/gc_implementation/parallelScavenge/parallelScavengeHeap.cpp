@@ -468,7 +468,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // count objects before gc
   // Ucare::count_all_objects(gc_id, "Before GC");
   // count oops before gc
-  Ucare::count_all_oops(gc_id, "BeforeGC");
+  Ucare::count_oops_before_gc(gc_id);
 
   // @rayandrew
   // Print Heap Size
@@ -590,7 +590,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // count objects after gc
   // Ucare::count_all_objects(gc_id, "After GC");
   // count oops after gc
-  Ucare::count_all_oops(gc_id, "AfterGC");
+  Ucare::count_oops_after_gc(gc_id);
 
   return result;
 }

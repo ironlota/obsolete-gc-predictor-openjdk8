@@ -12,6 +12,7 @@
 #if INCLUDE_ALL_GCS
 // PSScavenge
 class PSPromotionManager;
+class MutableSpace;
 // PSParallelCompact
 class ParCompactionManager;
 #endif
@@ -33,6 +34,8 @@ class Ucare : AllStatic {
     class OopIterationClosure;
     class ObjectIterationClosure;
     class TraceClosure;
+    class BeforeGCRootsOopClosure;
+    class AfterGCRootsOopClosure;
 
   public:
     // public closures
@@ -41,6 +44,8 @@ class Ucare : AllStatic {
     class TraceOopClosure;
     class TraceAndCountOopClosure;
     class TraceAndCountRootOopClosure;
+    class TraceKlassClosure;
+    class TraceAndCountKlassClosure;
 
     // gc specifics closure
     #if INCLUDE_ALL_GCS
@@ -49,6 +54,8 @@ class Ucare : AllStatic {
     typedef PSRootsClosure</*promote_immediately=*/false> PSScavengeRootsClosure;
     typedef PSRootsClosure</*promote_immediately=*/true> PSPromoteRootsClosure;
 
+    class PSKeepAliveClosure;
+  
     // PSParallelCompact
     class MarkAndPushClosure;
     #endif
@@ -83,7 +90,8 @@ class Ucare : AllStatic {
       class_loader_data     = 7,
       management            = 8,
       jvmti                 = 9,
-      code_cache            = 10
+      code_cache            = 10,
+      reference             = 11,
     };
   
   private:
@@ -162,12 +170,12 @@ class Ucare : AllStatic {
       
       private:
         template<class T>
-        bool is_oop_live(T* p) {
+        inline bool is_oop_live(T* p) {
           return _live_filter != NULL && _live_filter->do_oop_b(p);
         }
 
         template<class T>
-        void do_oop_work(T* p) {
+        inline void do_oop_work(T* p) {
           inc_total_object_counts();
           if (is_oop_live(p)) {
             inc_live_object_counts();
@@ -188,6 +196,9 @@ class Ucare : AllStatic {
     };
   
   public:
+    class TraceKlassClosure : public KlassClosure, public TraceClosure {};
+    class TraceAndCountKlassClosure :  public TraceKlassClosure, public ObjectCounterMixin {};
+
     class BoolOopClosure : public Closure {
       public:
         virtual bool do_oop_b(oop* o) = 0;
@@ -210,7 +221,7 @@ class Ucare : AllStatic {
         void set_gc_id(const GCId gc_id) {
           _gc_id = gc_id;            
         }
-        void print_info();
+        void print_info(const char* additional_id = "");
     };
 
     class TraceAndCountRootOopClosureContainer : protected ObjectCounterMixin, protected TraceTimeMixin {
@@ -223,8 +234,10 @@ class Ucare : AllStatic {
         TraceAndCountRootOopClosureContainer(GCId gc_id, const char* context = "", bool verbose = true);
         ~TraceAndCountRootOopClosureContainer();
         void reset_counter();
-        void add_counter(const TraceAndCountRootOopClosure* oop_closure);
-        void add_counter(const ObjectCounterMixin* object_counter);
+
+        template<class T>
+        inline void add_counter(const T* object_counter);
+        // void add_counter(const ObjectCounterMixin* object_counter);
     };
 
     #if INCLUDE_ALL_GCS
@@ -236,11 +249,53 @@ class Ucare : AllStatic {
       private:
         PSPromotionManager* _promotion_manager;
       protected:
-        template <class T> inline void do_oop_work(T *p);
+        template <class T>
+        inline void do_oop_work(T *p);
       public:
         PSRootsClosure(PSPromotionManager* pm): TraceAndCountRootOopClosure(Ucare::unknown, "UcarePSRootsClosure", false), _promotion_manager(pm) { }
-        void do_oop(oop* p)       { PSRootsClosure::do_oop_work(p); }
-        void do_oop(narrowOop* p) { PSRootsClosure::do_oop_work(p); }
+        void do_oop(oop* p)       { Ucare::PSRootsClosure<promote_immediately>::do_oop_work(p); }
+        void do_oop(narrowOop* p) { Ucare::PSRootsClosure<promote_immediately>::do_oop_work(p); }
+    };
+
+    // Scavenges a single oop in a Klass.
+    class PSScavengeFromKlassClosure: public TraceAndCountOopClosure {
+      private:
+        PSPromotionManager* _pm;
+        // Used to redirty a scanned klass if it has oops
+        // pointing to the young generation after being scanned.
+        Klass*             _scanned_klass;
+      private:
+        void do_klass_barrier();
+      public:
+        PSScavengeFromKlassClosure(PSPromotionManager* pm): _pm(pm), _scanned_klass(NULL) { }
+        void do_oop(narrowOop* p) { ShouldNotReachHere(); }
+        void do_oop(oop* p);
+        void set_scanned_klass(Klass* klass);
+    };
+
+    class PSScavengeKlassClosure: public KlassClosure {
+      private:
+        PSScavengeFromKlassClosure _oop_closure;
+      public:
+        PSScavengeKlassClosure(PSPromotionManager* pm) : _oop_closure(pm) { }
+        ~PSScavengeKlassClosure();
+        void do_klass(Klass* klass);
+        const TraceAndCountOopClosure* get_oop_closure() const {
+          return (const TraceAndCountOopClosure*) &_oop_closure;
+        }
+    };
+
+    class PSKeepAliveClosure: public TraceAndCountRootOopClosure {
+      protected:
+        MutableSpace* _to_space;
+        PSPromotionManager* _promotion_manager;
+      private:
+        template <class T>
+        inline void do_oop_work(T* p);
+      public:
+        PSKeepAliveClosure(PSPromotionManager* pm);
+        virtual void do_oop(oop* p)       { Ucare::PSKeepAliveClosure::do_oop_work(p); }
+        virtual void do_oop(narrowOop* p) { Ucare::PSKeepAliveClosure::do_oop_work(p); }
     };
 
     // --------------------------------------------------
@@ -267,27 +322,56 @@ class Ucare : AllStatic {
     #endif
 
   private:
+    class BeforeGCRootsOopClosure : public BoolOopClosure {
+      private:
+        template<class T> bool do_oop_work(T* p);
+      public:
+        bool do_oop_b(oop* p) { return Ucare::BeforeGCRootsOopClosure::do_oop_work(p); }
+        bool do_oop_b(narrowOop* p) { return Ucare::BeforeGCRootsOopClosure::do_oop_work(p); }
+    };
+
+    class AfterGCRootsOopClosure : public BoolOopClosure {
+      private:
+        template<class T> bool do_oop_work(T* p);
+      public:
+        bool do_oop_b(oop* p) { return Ucare::AfterGCRootsOopClosure::do_oop_work(p); }
+        bool do_oop_b(narrowOop* p) { return Ucare::AfterGCRootsOopClosure::do_oop_work(p); }
+    };
+  
+  private:
     static jint initialize();
   
     // add oop container
-    static Ucare::TraceAndCountRootOopClosureContainer* _young_gen_oop_container;
-    static Ucare::TraceAndCountRootOopClosureContainer* _old_gen_oop_container;
-  
+    static TraceAndCountRootOopClosureContainer* _young_gen_oop_container;
+    static TraceAndCountRootOopClosureContainer* _old_gen_oop_container;
+    static BeforeGCRootsOopClosure _before_gc_roots_oop_closure;
+    static AfterGCRootsOopClosure  _after_gc_roots_oop_closure; 
   
   public:
     Ucare() { ShouldNotReachHere(); }
     ~Ucare() { ShouldNotReachHere(); }
 
-    // These 4 functions are not MT-safe
+
+    // These functions are not MT-safe
+    // make sure this called in `Safepoint`
+    static BeforeGCRootsOopClosure* get_before_gc_roots_oop_closure();
+    static AfterGCRootsOopClosure*  get_after_gc_roots_oop_closure(); 
     static void reset_young_gen_oop_container();
     static void reset_old_gen_oop_container();
-    static void set_young_gen_oop_container(Ucare::TraceAndCountRootOopClosureContainer* container);
-    static void set_old_gen_oop_container(Ucare::TraceAndCountRootOopClosureContainer* container);
-    static Ucare::TraceAndCountRootOopClosureContainer* get_young_gen_oop_container();
-    static Ucare::TraceAndCountRootOopClosureContainer* get_old_gen_oop_container();
+    static void set_young_gen_oop_container(TraceAndCountRootOopClosureContainer* container);
+    static void set_old_gen_oop_container(TraceAndCountRootOopClosureContainer* container);
+    static TraceAndCountRootOopClosureContainer* get_young_gen_oop_container();
+    static TraceAndCountRootOopClosureContainer* get_old_gen_oop_container();
 
     static void count_oops(BoolOopClosure* filter, const GCId& gc_id, const char* phase = "");
     static void count_all_oops(const GCId& gc_id, const char* phase = "");
+  
+    static inline void count_oops_before_gc(const GCId& gc_id) {
+      count_oops(get_before_gc_roots_oop_closure(), gc_id, "BeforeGC");
+    }
+    static inline void count_oops_after_gc(const GCId& gc_id) {
+      count_oops(get_after_gc_roots_oop_closure(), gc_id, "AfterGC");
+    }
   
     static void count_objects(BoolObjectClosure* filter, const GCId& gc_id, const char* phase = "");
     static void count_all_objects(const GCId& gc_id, const char* phase = "");

@@ -32,10 +32,6 @@
 #include "gc_implementation/parallelScavenge/psScavenge.hpp"
 #include "memory/iterator.hpp"
 
-// @rayandrew
-// add `Ucare` class
-#include "utilities/ucare.hpp"
-
 inline void PSScavenge::save_to_space_top_before_gc() {
   ParallelScavengeHeap* heap = (ParallelScavengeHeap*)Universe::heap();
   _to_space_top_before_gc = heap->young_gen()->to_space()->top();

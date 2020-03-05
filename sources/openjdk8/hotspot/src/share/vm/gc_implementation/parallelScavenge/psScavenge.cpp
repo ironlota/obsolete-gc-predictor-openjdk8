@@ -62,6 +62,8 @@
 // add this to get the live objects
 #include "memory/universe.hpp"
 #include "utilities/ucare.hpp"
+#include "utilities/ucare.inline.hpp"
+#include "gc_implementation/parallelScavenge/ucare.psgc.inline.hpp"
 
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
 
@@ -316,9 +318,14 @@ bool PSScavenge::invoke_no_policy() {
   if (!should_attempt_scavenge()) {
     return false;
   }
-
+  
   _gc_tracer.report_gc_start(heap->gc_cause(), _gc_timer.gc_start());
 
+  // @rayandrew
+  // add oop container    
+  Ucare::TraceAndCountRootOopClosureContainer oop_container(_gc_tracer.gc_id(), "YoungGen");
+  Ucare::set_young_gen_oop_container(&oop_container);
+  
   bool promotion_failure_occurred = false;
 
   PSYoungGen* young_gen = heap->young_gen();
@@ -428,10 +435,6 @@ bool PSScavenge::invoke_no_policy() {
     // We'll use the promotion manager again later.
     PSPromotionManager* promotion_manager = PSPromotionManager::vm_thread_promotion_manager();
     {
-      // @rayandrew
-      // add oop container    
-      Ucare::TraceAndCountRootOopClosureContainer oop_container(_gc_tracer.gc_id(), "YoungGen");
-      Ucare::set_young_gen_oop_container(&oop_container);
       
       // @rayandrew
       // add this to know the time of running heap_traversal (scavenge)
@@ -473,10 +476,6 @@ bool PSScavenge::invoke_no_policy() {
       }
 
       gc_task_manager()->execute_and_wait(q);
-
-      // @rayandrew
-      // reset oop container
-      Ucare::reset_young_gen_oop_container();
     }
 
     // @rayandrew
@@ -494,7 +493,7 @@ bool PSScavenge::invoke_no_policy() {
 
       reference_processor()->setup_policy(false); // not always_clear
       reference_processor()->set_active_mt_degree(active_workers);
-      PSKeepAliveClosure keep_alive(promotion_manager);
+      Ucare::PSKeepAliveClosure keep_alive(promotion_manager);
       PSEvacuateFollowersClosure evac_followers(promotion_manager);
       ReferenceProcessorStats stats;
       if (reference_processor()->processing_is_mt()) {
@@ -516,6 +515,11 @@ bool PSScavenge::invoke_no_policy() {
       } else {
         reference_processor()->enqueue_discovered_references(NULL);
       }
+
+      // @rayandrew
+      // add and print counter
+      keep_alive.print_info();
+      Ucare::get_young_gen_oop_container()->add_counter(&keep_alive);
     }
 
     {
@@ -776,6 +780,10 @@ bool PSScavenge::invoke_no_policy() {
   // add checkpoint for return function
   gclog_or_tty->stamp(PrintGCTimeStamps);
   gclog_or_tty->print_cr(" Before the end of function");
+
+  // @rayandrew
+  // reset oop container
+  Ucare::reset_young_gen_oop_container();
   
   return !promotion_failure_occurred;
 }

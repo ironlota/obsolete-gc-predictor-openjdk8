@@ -258,6 +258,7 @@
 // @rayandrew
 // add `Ucare` utils
 # include "utilities/ucare.hpp"
+# include "utilities/ucare.inline.hpp"
 
 #ifdef COMPILER2
 # include "libadt/dict.hpp"
@@ -332,7 +333,7 @@
 
 // @rayandrew
 // add `Ucare` gc utils
-# include "gc_implementation/shared/ucare.gc.inline.hpp"
+# include "gc_implementation/parallelScavenge/ucare.psgc.inline.hpp"
 #endif // INCLUDE_ALL_GCS
 
 #endif // !DONT_USE_PRECOMPILED_HEADER

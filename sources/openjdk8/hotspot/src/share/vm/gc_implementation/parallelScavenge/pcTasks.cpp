@@ -44,7 +44,8 @@
 // @rayandrew
 // add `Ucare` and stuffs
 #include "utilities/ucare.hpp"
-#include "gc_implementation/shared/ucare.gc.inline.hpp"
+#include "utilities/ucare.inline.hpp"
+#include "gc_implementation/parallelScavenge/ucare.psgc.inline.hpp"
 
 PRAGMA_FORMAT_MUTE_WARNINGS_FOR_GCC
 
@@ -62,7 +63,13 @@ void ThreadRootsMarkingTask::do_it(GCTaskManager* manager, uint which) {
   ParCompactionManager* cm =
     ParCompactionManager::gc_thread_compaction_manager(which);
 
-  PSParallelCompact::MarkAndPushClosure mark_and_push_closure(cm);
+  // PSParallelCompact::MarkAndPushClosure mark_and_push_closure(cm);
+
+  // @rayandrew
+  // change to `Ucare` closure
+  Ucare::MarkAndPushClosure mark_and_push_closure(cm);
+  mark_and_push_closure.set_root_type(Ucare::threads);
+  
   CLDToOopClosure mark_and_push_from_clds(&mark_and_push_closure, true);
   MarkingCodeBlobClosure mark_and_push_in_blobs(&mark_and_push_closure, !CodeBlobToOopClosure::FixRelocations);
 
@@ -78,6 +85,9 @@ void ThreadRootsMarkingTask::do_it(GCTaskManager* manager, uint which) {
         &mark_and_push_from_clds,
         &mark_and_push_in_blobs);
 
+  mark_and_push_closure.print_info();
+  Ucare::get_old_gen_oop_container()->add_counter(&mark_and_push_closure);
+  
   // Do the real work
   cm->follow_marking_stacks();
 }
