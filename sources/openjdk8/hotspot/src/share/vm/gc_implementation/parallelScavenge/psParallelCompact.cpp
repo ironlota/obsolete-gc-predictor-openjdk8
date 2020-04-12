@@ -2008,6 +2008,13 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction) {
   assert(SafepointSynchronize::is_at_safepoint(), "must be at a safepoint");
   assert(ref_processor() != NULL, "Sanity");
 
+  // @rayandrew
+  // add oop container
+  Ucare::TraceAndCountRootOopClosureContainer oop_container(_gc_tracer.gc_id(), "OldGen");
+  Ucare::set_old_gen_oop_container(&oop_container);
+  // reset is alive counter
+  // is_alive_closure()->clear();
+  
   if (GC_locker::check_active_before_gc()) {
     return false;
   }
@@ -2256,6 +2263,12 @@ bool PSParallelCompact::invoke_no_policy(bool maximum_heap_compaction) {
   _gc_tracer.report_dense_prefix(dense_prefix(old_space_id));
   _gc_tracer.report_gc_end(_gc_timer.gc_end(), _gc_timer.time_partitions());
 
+  // @rayandrew
+  // add is_alive_closure
+  Ucare::get_old_gen_oop_container()->add_counter(is_alive_closure());
+  // reset oop container
+  Ucare::reset_old_gen_oop_container();
+  
   return true;
 }
 
@@ -2365,11 +2378,6 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
   TaskQueueSetSuper* qset = ParCompactionManager::region_array();
   ParallelTaskTerminator terminator(active_gc_threads, qset);
 
-  // @rayandrew
-  // add oop container
-  Ucare::TraceAndCountRootOopClosureContainer oop_container(_gc_tracer.gc_id(), "OldGen");
-  Ucare::set_old_gen_oop_container(&oop_container);
-
   // PSParallelCompact::MarkAndPushClosure mark_and_push_closure(cm);
   // PSParallelCompact::FollowStackClosure follow_stack_closure(cm);
   
@@ -2430,6 +2438,7 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
     }
 
     gc_tracer->report_gc_reference_stats(stats);
+    ucarelog_or_tty->print_cr("PSParallelCompact Discovered references: soft_ref=%zu, weak_ref=%zu, final_ref=%zu, phantom_ref=%zu", stats.soft_count(), stats.weak_count(), stats.final_count(), stats.phantom_count());
 
     // @rayandrew
     // add and print counter
@@ -2457,10 +2466,6 @@ void PSParallelCompact::marking_phase(ParCompactionManager* cm,
   // Clean up unreferenced symbols in symbol table.
   SymbolTable::unlink();
   _gc_tracer.report_object_count_after_gc(is_alive_closure());
-  
-  // @rayandrew
-  // reset oop container
-  Ucare::reset_old_gen_oop_container();
 }
 
 void PSParallelCompact::follow_class_loader(ParCompactionManager* cm,

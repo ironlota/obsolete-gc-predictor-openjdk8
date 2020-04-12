@@ -18,6 +18,27 @@
 #include "utilities/ucare.hpp"
 #include "utilities/ucare.inline.hpp"
 
+GrowableArray<const char*>* Ucare::_phase;
+
+void Ucare::add_phase(const char* phase) {
+  _phase->append_if_missing(phase);
+}
+
+void Ucare::flush_phase(const GCId &gc_id) {
+  stringStream ss;
+  ss.print("phase gc_id %u: [", gc_id.id());
+  for (GrowableArrayIterator<const char*> it = _phase->begin(); it != _phase->end(); ++it) {
+    const char* phase = *it;
+    ss.print("%s ", phase);
+  }
+  ss.print("]");
+    // ss.print("%s::%s", name, get_root_type_as_string(type));
+  // return ss.as_string();
+  ucarelog_or_tty->stamp(PrintGCTimeStamps);
+  ucarelog_or_tty->print_cr("%s", ss.as_string());
+  _phase->clear();
+}
+
 // UcareAlwaysTrueClosure
 class UcareAlwaysTrueClosure: public BoolObjectClosure, public Ucare::BoolOopClosure {
   public:
@@ -31,6 +52,7 @@ static UcareAlwaysTrueClosure always_true;
 int Ucare::RootTypeMixin::NUM_OF_ROOTS = 10;
 
 jint Ucare::initialize() {
+  _phase = new GrowableArray<const char*>(25);
   return JNI_OK;
 }
 
@@ -201,6 +223,8 @@ const char* Ucare::RootTypeMixin::get_root_type_as_string(RootType type) {
       return "code_cache";
     case reference:
       return "reference";
+    case string_table:
+      return "string_table";
     default:
       return "unknown";
   }
@@ -220,6 +244,11 @@ void Ucare::ObjectIterationClosure::do_object(oop obj) {
   } else {
     inc_dead_object_counts();
   }
+}
+
+//// TraceAndCountBoolObjectClosure
+void Ucare::TraceAndCountBoolObjectClosure::print_info(const char* additional_id) {
+  ucarelog_or_tty->print_cr("  %s%s: elapsed=%3.7fms, dead=%zu, live=%zu, total=%zu", RootTypeMixin::get_root_type_as_string(_root_type), additional_id, elapsed_milliseconds(), get_dead_object_counts(), get_live_object_counts(), get_total_object_counts());
 }
 
 //// TraceAndCountRootOopClosure

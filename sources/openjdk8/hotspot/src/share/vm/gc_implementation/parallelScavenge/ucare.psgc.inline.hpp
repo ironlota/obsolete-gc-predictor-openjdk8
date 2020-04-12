@@ -50,7 +50,6 @@ inline void Ucare::copy_and_push_safe_barrier(TraceAndCountRootOopClosure* closu
 
   oopDesc::encode_store_heap_oop_not_null(p, new_obj);
 
-  closure->inc_total_object_counts();
   closure->inc_live_object_counts();
   
   // @rayandrew
@@ -74,14 +73,13 @@ inline void Ucare::copy_and_push_safe_barrier(TraceAndCountRootOopClosure* closu
 template<bool promote_immediately>
 template<class T>
 inline void Ucare::PSRootsClosure<promote_immediately>::do_oop_work(T *p) {
-  // inc_total_object_counts();
+  inc_total_object_counts();
   if (PSScavenge::should_scavenge(p)) {
     // We never card mark roots, maybe call a func without test?
     Ucare::copy_and_push_safe_barrier<T, promote_immediately>(this, _promotion_manager, p);
+  } else {
+    inc_dead_object_counts();
   }
-  // else {
-  //   inc_dead_object_counts();
-  // }
 }
 
 template <class T>

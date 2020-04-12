@@ -493,7 +493,7 @@ void DiscoveredListIterator::load_ptrs(DEBUG_ONLY(bool allow_null_referent)) {
          "bad referent");
 }
 
-void DiscoveredListIterator::remove() {
+void DiscoveredListIterator ::remove() {
   assert(_ref->is_oop(), "Dropping a bad reference");
   oop_store_raw(_discovered_addr, NULL);
 

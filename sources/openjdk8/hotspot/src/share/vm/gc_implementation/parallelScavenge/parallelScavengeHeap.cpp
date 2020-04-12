@@ -492,7 +492,8 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
     // PSScavenge is running and will try to allocate in the
     // Young Gen
     {
-      TraceTime t("[Phase 1][Scavenge_AllocateYoungGen]", NULL, true, false, true, ucarelog_or_tty);
+      TraceTime t("[Phase 1][Scavenge_AllocateYoungGen]", NULL, true, true, true, gclog_or_tty);
+      Ucare::add_phase("1");
       // this `invoke` is actually do LOT OF JOBS inside itself
       // 1. Scavenge object in young gen
       //    Requires heap traversal using ScavengeRootsTask in Young Gen Heap only
@@ -518,9 +519,10 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
     // Has preq : does not invoke full gc
     // Allocate in the Young Gen
     {
-      TraceTime t("[Phase 2][MarkSweepWithoutCompaction_AllocateYoungGen]", NULL, true, false, true, ucarelog_or_tty);
+      TraceTime t("[Phase 2][MarkSweepWithoutCompaction_AllocateYoungGen]", NULL, true, true, true, gclog_or_tty);
     
       if (result == NULL && !invoked_full_gc) {
+        Ucare::add_phase("2");
         do_full_collection(false);
         result = young_gen()->allocate(size);
       }
@@ -536,7 +538,8 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
     // and after the full gc the allocation still
     // cannot be satisfied from the young gen
     {
-      TraceTime t("[Phase 3][DeathMarchCheck]", NULL, true, false, true, ucarelog_or_tty);
+      TraceTime t("[Phase 3][DeathMarchCheck]", NULL, true, true, true, gclog_or_tty);
+      Ucare::add_phase("3");
       death_march_check(result, size);
     }
 
@@ -548,8 +551,9 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
     // Scope 4 == Phase 4 of failed_mem_allocate
     // Allocate in Old Gen
     {
-      TraceTime t("[Phase 4][AllocateOldGen]", NULL, true, false, true, ucarelog_or_tty);
+      TraceTime t("[Phase 4][AllocateOldGen]", NULL, true, true, true, gclog_or_tty);
       if (result == NULL) {
+        Ucare::add_phase("4");
         result = old_gen()->allocate(size);
       }
     }
@@ -563,8 +567,9 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
     // This is the condition called "FULL GC"
     // Will try to allocate in the Young Gen first
     {
-      TraceTime t("[Phase 5][MarkSweepWithCompaction_AllocateYoungGen]", NULL, true, false, true, ucarelog_or_tty);
+      TraceTime t("[Phase 5][MarkSweepWithCompaction_AllocateYoungGen]", NULL, true, true, true, gclog_or_tty);
       if (result == NULL) {
+        Ucare::add_phase("5");
         do_full_collection(true);
         result = young_gen()->allocate(size);
       }
@@ -579,8 +584,9 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
     // Will try to allocate in Old Gen
     // after failed to allocate in Young Gen
     {
-      TraceTime t("[Phase 6][AllocateOldGen]", NULL, true, false, true, ucarelog_or_tty);
+      TraceTime t("[Phase 6][AllocateOldGen]", NULL, true, true, true, gclog_or_tty);
       if (result == NULL) {
+        Ucare::add_phase("6");
         result = old_gen()->allocate(size);
       }
     }
@@ -591,6 +597,7 @@ HeapWord* ParallelScavengeHeap::failed_mem_allocate(size_t size) {
   // Ucare::count_all_objects(gc_id, "After GC");
   // count oops after gc
   Ucare::count_oops_after_gc(gc_id);
+  Ucare::flush_phase(gc_id);
 
   return result;
 }

@@ -93,6 +93,20 @@ Ucare::PSKeepAliveClosure::PSKeepAliveClosure(PSPromotionManager* pm): TraceAndC
   assert(_promotion_manager != NULL, "Sanity");
 }
 
+bool Ucare::PSIsAliveClosure::do_object_b(oop p) {
+  const bool result = !PSScavenge::is_obj_in_young(p) || p->is_forwarded();
+
+  // ucarelog_or_tty->print_cr("TEST %d", result);
+  
+  inc_total_object_counts();
+  
+  if (result) {
+    inc_live_object_counts();
+  } else {
+    inc_dead_object_counts();
+  }
+}
+
 // --------------------------------------------------
 // PSParallelCompact
 // --------------------------------------------------

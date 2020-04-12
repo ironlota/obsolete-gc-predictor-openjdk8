@@ -7,6 +7,7 @@
 #include "memory/universe.hpp"
 #include "runtime/timer.hpp"
 #include "utilities/globalDefinitions.hpp"
+#include "utilities/growableArray.hpp"
 
 // forward declarations
 #if INCLUDE_ALL_GCS
@@ -39,13 +40,16 @@ class Ucare : AllStatic {
 
   public:
     // public closures
+    class TraceKlassClosure;
+    class TraceAndCountKlassClosure;
+  
+    class TraceAndCountBoolObjectClosure;
+  
     class BoolOopClosure;
     class CountingOopClosure;
     class TraceOopClosure;
     class TraceAndCountOopClosure;
     class TraceAndCountRootOopClosure;
-    class TraceKlassClosure;
-    class TraceAndCountKlassClosure;
 
     // gc specifics closure
     #if INCLUDE_ALL_GCS
@@ -55,6 +59,7 @@ class Ucare : AllStatic {
     typedef PSRootsClosure</*promote_immediately=*/true> PSPromoteRootsClosure;
 
     class PSKeepAliveClosure;
+    class PSIsAliveClosure;
   
     // PSParallelCompact
     class MarkAndPushClosure;
@@ -92,6 +97,7 @@ class Ucare : AllStatic {
       jvmti                 = 9,
       code_cache            = 10,
       reference             = 11,
+      string_table          = 12,
     };
   
   private:
@@ -199,6 +205,12 @@ class Ucare : AllStatic {
     class TraceKlassClosure : public KlassClosure, public TraceClosure {};
     class TraceAndCountKlassClosure :  public TraceKlassClosure, public ObjectCounterMixin {};
 
+  class TraceAndCountBoolObjectClosure : public BoolObjectClosure, public ObjectCounterMixin, public TraceTimeMixin, public RootTypeMixin {
+      public:
+        TraceAndCountBoolObjectClosure(elapsedTimer* accumulator = NULL, bool active = true): TraceTimeMixin(accumulator, active) {}
+        void print_info(const char* additional_id = "");
+    };
+  
     class BoolOopClosure : public Closure {
       public:
         virtual bool do_oop_b(oop* o) = 0;
@@ -206,6 +218,7 @@ class Ucare : AllStatic {
         virtual bool do_oop_b(narrowOop* o) = 0;
         virtual bool do_oop_b_v(narrowOop* o) { do_oop_b(o); }
     };
+    
     class CountingOopClosure : public OopClosure, public ObjectCounterMixin {};
     class TraceOopClosure : public OopClosure, public TraceClosure {};  
     class TraceAndCountOopClosure : public TraceOopClosure, public ObjectCounterMixin {};
@@ -298,6 +311,11 @@ class Ucare : AllStatic {
         virtual void do_oop(narrowOop* p) { Ucare::PSKeepAliveClosure::do_oop_work(p); }
     };
 
+    class PSIsAliveClosure: public TraceAndCountBoolObjectClosure {
+      public:
+        bool do_object_b(oop p);
+    };
+
     // --------------------------------------------------
     // PSParallelCompact
     // --------------------------------------------------
@@ -345,7 +363,10 @@ class Ucare : AllStatic {
     static TraceAndCountRootOopClosureContainer* _young_gen_oop_container;
     static TraceAndCountRootOopClosureContainer* _old_gen_oop_container;
     static BeforeGCRootsOopClosure _before_gc_roots_oop_closure;
-    static AfterGCRootsOopClosure  _after_gc_roots_oop_closure; 
+    static AfterGCRootsOopClosure  _after_gc_roots_oop_closure;
+
+    // phase container
+    static GrowableArray<const char*>* _phase;
   
   public:
     Ucare() { ShouldNotReachHere(); }
@@ -372,6 +393,10 @@ class Ucare : AllStatic {
     static inline void count_oops_after_gc(const GCId& gc_id) {
       count_oops(get_after_gc_roots_oop_closure(), gc_id, "AfterGC");
     }
+
+    // static inline GrowableArray<const char*>* phase_passed() { return _phase; }
+    static void add_phase(const char* phase);
+    static void flush_phase(const GCId& gc_id);
   
     static void count_objects(BoolObjectClosure* filter, const GCId& gc_id, const char* phase = "");
     static void count_all_objects(const GCId& gc_id, const char* phase = "");
