@@ -3,11 +3,11 @@
 
 ## Directories
 
-build/
-target/
-.idea/
-OBF_DROP_DIR/
-java8-sck/
+# build/
+# target/
+# .idea/
+# OBF_DROP_DIR/
+# java8-sck/
 
 sources/openjdk8/.*
 OBF_DROP_DIR/
