@@ -7,21 +7,26 @@ build/
 target/
 .idea/
 OBF_DROP_DIR/
-java11-sck/
+java8-sck/
+
+sources/openjdk8/.*
+OBF_DROP_DIR/
+java8-mitmem/
+sources/openjdk8/build/
 
 ## Files
 
 *.class
-*.jar
-*.war
-*.ear
+# *.jar
+# *.war
+# *.ear
 *.logs
-*.iml
-.eclipse
-*.out
-*.orig
-Terms
-*.DS_Store
+# *.iml
+# .eclipse
+# *.out
+# *.orig
+# Terms
+# *.DS_Store
 
 #### Tex
 ## Core latex/pdflatex auxiliary files:
